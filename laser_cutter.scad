@@ -26,8 +26,8 @@ show_front_panel=true;
 show_electronics_bulkhead=true;
 show_rear_tube_hatch=true;
 show_control_panel=true;
-show_lid_glazing=false;
-show_lid_frame=false;
+show_lid_glazing=true;
+show_lid_frame=true;
 lid_angle=24;                // [0:5:75] 0=closed; positive raises front edge
 rear_tube_hatch_angle=0;     // [0:5:80] 0=closed; opens outward/upward
 electronics_service_panel_angle=0; // [0:5:100] right-side bay access
@@ -795,7 +795,7 @@ module tube_and_optics() {
 
     // Tube module has a Y axis, hence rotate it onto global X.
     translate([tube_center_x,shelf_y,tube_z]) rotate([0,0,90])
-        co2_laser_tube(diameter=tube_diameter,length=tube_length);
+        co2_laser_tube_50w(diameter=tube_diameter,length=tube_length);
 
     // A1 at the tube output and A2 carried close to the left service wall.
     // Both mirror centers share the wall-clearance-derived X datum above;
@@ -1072,15 +1072,16 @@ module electronics_service_panel(angle=electronics_service_panel_angle) {
         translate([door_x,hinge_y,170]) rotate([0,0,angle]) {
             color([0.56,0.58,0.59])
                 translate([0,-door_y/2,0]) cube([4,door_y,door_z],center=true);
-            // Two quarter-turn compression latches on the front edge.
-            color([0.06,0.065,0.07])
-                for (z=[115,225])
-                    translate([5,-door_y+18,z-170]) cube([10,24,22],center=true);
+            // Two printable cam latches pull the door against its perimeter
+            // gasket. M5 mounting screws and M4 pivots remain metal hardware.
+            for (z=[115,225])
+                translate([7,-door_y+25,z-170]) rotate([0,90,0])
+                    enclosure_cam_latch_assembly();
         }
 
         for (z=[105,170,235])
             translate([door_x,hinge_y,z]) rotate([0,90,0])
-                lid_hinge(width=38);
+                enclosure_hinge_assembly(width=38,leaf_depth=20);
     }
 }
 
@@ -1175,14 +1176,8 @@ module rear_tube_service_hatch(angle=rear_tube_hatch_angle) {
 
         // Three fixed hinges distribute the load across the long access door.
         for (x=[hatch_cx-350,hatch_cx,hatch_cx+350])
-            translate([x,rear_y,hinge_z]) lid_hinge(width=46);
-    }
-}
-
-module lid_hinge(width=42) {
-    color([0.08,0.085,0.09]) {
-        cube([width,14,5],center=true);
-        rotate([0,90,0]) cylinder(d=8,h=width+6,center=true);
+            translate([x,rear_y,hinge_z])
+                enclosure_hinge_assembly(width=46,leaf_depth=20);
     }
 }
 
@@ -1323,7 +1318,8 @@ module framed_hinged_lid(angle=24) {
     // Three rear hinges remain fixed to the enclosure hinge axis.
     if (show_lid_frame)
         for (x=[lid_cx-lid_w/3,lid_cx,lid_cx+lid_w/3])
-            translate([x,hinge_y,hinge_z]) lid_hinge();
+            translate([x,hinge_y,hinge_z])
+                enclosure_hinge_assembly(width=42,leaf_depth=22);
 }
 
 module machine_enclosure() {
@@ -1348,21 +1344,6 @@ module laser_cutter() {
     electronics_bay();
     machine_enclosure();
     motion_clearance_review();
-}
-
-// Simple hollow tube local to this assembly.
-module co2_laser_tube(diameter=50,length=800) {
-    color([0.72,0.91,1.00,0.38])
-        rotate([90,0,0]) difference() {
-            cylinder(d=diameter,h=length,center=true);
-            cylinder(d=diameter-4,h=length+2,center=true);
-        }
-    color([0.88,0.92,0.94])
-        for (y=[-length/2,length/2])
-            translate([0,y,0]) rotate([90,0,0]) difference() {
-                cylinder(d=diameter+5,h=8,center=true);
-                cylinder(d=diameter-3,h=10,center=true);
-            }
 }
 
 laser_cutter();

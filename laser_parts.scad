@@ -28,6 +28,372 @@ LASER_HOLDER_MAX_HEIGHT = 160;
 LASER_HOLDER_MIN_TUBE_D = 50;
 LASER_HOLDER_MAX_TUBE_D = 80;
 
+// ---------------------------------------------------------------------------
+// TEN-HIGH-style 50 W CO2 tube, 800 mm overall length and 50 mm jacket OD.
+// Local Y is the optical axis. The output aperture is at +Y, matching the
+// orientation used by laser_cutter.scad after its 90-degree Z rotation.
+
+module _co2_y_cylinder(d=10,length=20,center=true,$fn=48) {
+    rotate([90,0,0]) cylinder(d=d,h=length,center=center,$fn=$fn);
+}
+
+module _co2_glass_segment(a,b,d=4) {
+    hull() {
+        translate(a) sphere(d=d,$fn=24);
+        translate(b) sphere(d=d,$fn=24);
+    }
+}
+
+module _co2_torus_y(major_d=35,tube_d=3) {
+    rotate([90,0,0]) rotate_extrude($fn=48)
+        translate([major_d/2,0,0]) circle(d=tube_d,$fn=18);
+}
+
+module co2_laser_tube_50w(length=800,diameter=50,colors=true,
+                          show_labels=true,show_wires=true) {
+    glass=colors ? [0.72,0.91,1.00,0.30] : [0.80,0.80,0.80,0.35];
+    glass_edge=colors ? [0.84,0.96,1.00,0.48] : [0.72,0.72,0.72,0.48];
+    coolant=colors ? [0.35,0.74,0.92,0.17] : [0.60,0.60,0.60,0.16];
+    metal=colors ? [0.63,0.65,0.66] : [0.55,0.55,0.55];
+    body_length=length-116;
+    body_end=body_length/2;
+    neck_end=length/2-18;
+
+    // Main water jacket with a visible wall and faint coolant volume.
+    color(glass)
+        difference() {
+            _co2_y_cylinder(d=diameter,length=body_length);
+            _co2_y_cylinder(d=diameter-3.2,length=body_length+2);
+        }
+    color(coolant) _co2_y_cylinder(d=diameter-5,length=body_length-8);
+
+    // Central discharge capillary and the offset coolant return tube.
+    color(glass_edge) {
+        _co2_y_cylinder(d=10,length=length-64);
+        translate([0,0,-13]) _co2_y_cylinder(d=4.2,length=body_length-20);
+    }
+    color([0.73,0.10,0.08,0.55])
+        _co2_y_cylinder(d=3.2,length=length-95);
+
+    // Photo-visible glass spacers supporting the bore inside the jacket.
+    color(glass_edge)
+        for (y=[-245,-80,95,255])
+            translate([0,y,0]) _co2_torus_y(major_d=36,tube_d=2.4);
+
+    // Helical-looking coolant return near the positive-electrode end. Closely
+    // spaced glass loops communicate its form without expensive true threads.
+    color(glass_edge)
+        for (y=[body_end-105:9:body_end-28])
+            translate([0,y,0]) _co2_torus_y(major_d=26,tube_d=3.0);
+
+    // Tapered jacket shoulders and hand-formed end bulbs. Their extreme faces
+    // remain exactly at +/- length/2 for reliable optical layout.
+    color(glass) for (s=[-1,1]) {
+        translate([0,s*(body_end+15),0])
+            rotate([s<0 ? -90 : 90,0,0])
+                cylinder(d1=diameter,d2=25,h=30,center=true,$fn=48);
+        translate([0,s*(body_end+35),0])
+            _co2_y_cylinder(d=28,length=24);
+        translate([0,s*(body_end+49),0]) sphere(d=31,$fn=40);
+        _co2_glass_segment([0,s*(body_end+47),0],
+                           [0,s*neck_end,0],d=13);
+    }
+
+    // Metal electrode cups inside the terminal bulbs.
+    color(metal)
+        for (s=[-1,1])
+            translate([0,s*(body_end+48),0])
+                _co2_y_cylinder(d=17,length=7);
+
+    // +Y is the beam-output end: clear aperture, short lens collar, and a
+    // downward water outlet. The opposite end receives the HV terminal.
+    color(glass_edge) {
+        translate([0,length/2-9,0]) _co2_y_cylinder(d=15,length=18);
+        translate([0,-length/2+10,0]) _co2_y_cylinder(d=13,length=20);
+        _co2_glass_segment([0,length/2-42,-4],[0,length/2-30,-22],d=7);
+        _co2_glass_segment([0,-length/2+48,-4],[0,-length/2+36,-22],d=7);
+    }
+    color([0.84,0.88,0.90])
+        translate([0,length/2-2,0]) difference() {
+            _co2_y_cylinder(d=21,length=4);
+            _co2_y_cylinder(d=9,length=6);
+        }
+    color(metal) {
+        translate([0,-length/2+13,0]) _co2_y_cylinder(d=8,length=14);
+        translate([0,-length/2+8,0]) sphere(d=9,$fn=24);
+    }
+
+    // Simplified product labels wrapped as thin placards on the visible side.
+    if (show_labels) {
+        color([0.91,0.91,0.88]) {
+            translate([0,205,diameter/2+0.6]) cube([28,104,1],center=true);
+            translate([0,-210,diameter/2+0.6]) cube([30,95,1],center=true);
+            translate([0,-25,diameter/2+0.6]) cube([32,82,1],center=true);
+        }
+        color([0.96,0.73,0.04])
+            translate([0,-25,diameter/2+1.2]) cube([16,18,1],center=true);
+        color([0.76,0.03,0.025])
+            translate([0,205,diameter/2+1.2]) cube([7,34,1],center=true);
+    }
+
+    // Flexible visual electrode leads. They terminate close to the tube so
+    // machine-level routing can later connect them to real insulated wiring.
+    if (show_wires) {
+        color([0.76,0.02,0.025]) {
+            _co2_glass_segment([0,-length/2+18,-2],[10,-length/2+38,-18],d=2.4);
+            _co2_glass_segment([10,-length/2+38,-18],[28,-length/2+68,-20],d=2.4);
+        }
+        color([0.025,0.025,0.028]) {
+            _co2_glass_segment([0,length/2-28,-4],[-9,length/2-62,-18],d=2.2);
+            _co2_glass_segment([-9,length/2-62,-18],[-25,length/2-95,-18],d=2.2);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Active Aqua AAPA45L commercial air pump. Manufacturer-published unboxed
+// envelope: 5.5 x 3.5 x 3.5 in (139.7 x 88.9 x 88.9 mm), excluding the
+// detachable six-outlet manifold and flexible cord. Z=0 is the resting plane.
+
+AAPA45L_BODY_ENVELOPE=[139.7,88.9,88.9];
+
+module _aapa45l_barb(length=18,base_d=7,tip_d=4) {
+    rotate([0,90,0]) {
+        cylinder(d=base_d,h=4,$fn=24);
+        translate([0,0,4]) cylinder(d1=base_d,d2=tip_d,h=length-4,$fn=24);
+        for (z=[7:4:length-2])
+            translate([0,0,z]) cylinder(d1=tip_d+2,d2=tip_d,h=1.5,$fn=24);
+    }
+}
+
+module _aapa45l_rubber_foot() {
+    color([0.045,0.047,0.05]) {
+        cylinder(d1=18,d2=15,h=8,$fn=32);
+        translate([0,0,7.5]) cylinder(d=8,h=5,$fn=24);
+    }
+}
+
+module active_aqua_aapa45l(show_manifold=false,show_straight_connector=true,
+                           connector_barb_d=8,show_cord=true,
+                           colors=true) {
+    overall=AAPA45L_BODY_ENVELOPE;
+    body=[132,80,68];
+    body_z=16;
+    silver=colors ? [0.66,0.68,0.69] : [0.62,0.62,0.62];
+    dark=colors ? [0.055,0.06,0.065] : [0.30,0.30,0.30];
+    brass=colors ? [0.72,0.48,0.16] : [0.55,0.55,0.55];
+
+    // Four vibration-isolating feet establish the published resting plane.
+    for (x=[-overall[0]/2+18,overall[0]/2-18],
+         y=[-overall[1]/2+15,overall[1]/2-15])
+        translate([x,y,0]) _aapa45l_rubber_foot();
+
+    // Cast aluminum compressor housing with rounded end caps.
+    color(silver) {
+        translate([0,0,body_z+body[2]/2])
+            cube(body,center=true);
+        for (x=[-body[0]/2,body[0]/2])
+            translate([x,0,body_z+body[2]/2]) rotate([0,90,0])
+                cylinder(d=body[1],h=7,center=true,$fn=48);
+
+        // Longitudinal heat-dissipation fins on top and both side faces.
+        for (y=[-body[1]/2+8:9:body[1]/2-8])
+            translate([0,y,body_z+body[2]+3])
+                cube([body[0]-10,2.2,6],center=true);
+        for (side=[-1,1],z=[body_z+12:9:body_z+body[2]-10])
+            translate([0,side*(body[1]/2+3),z])
+                cube([body[0]-12,6,2.2],center=true);
+    }
+
+    // Black end covers, fasteners, label and top carry handle.
+    color(dark) {
+        for (x=[-body[0]/2-4,body[0]/2+4])
+            translate([x,0,body_z+body[2]/2]) rotate([0,90,0])
+                cylinder(d=body[1]-8,h=4,center=true,$fn=48);
+        translate([0,0,body_z+body[2]+9])
+            difference() {
+                cube([64,13,17],center=true);
+                translate([0,0,-2]) cube([43,17,11],center=true);
+            }
+    }
+    color([0.82,0.83,0.84])
+        for (x=[-body[0]/2-6,body[0]/2+6],a=[-35,35])
+            translate([x,sin(a)*25,body_z+body[2]/2+cos(a)*25])
+                rotate([0,90,0]) cylinder(d=5,h=2,center=true,$fn=20);
+    color([0.91,0.91,0.87])
+        translate([0,-body[1]/2-3,body_z+body[2]/2])
+            cube([72,1,29],center=true);
+
+    // Main threaded outlet and the supplied six-way brass/copper manifold.
+    color(brass) {
+        translate([body[0]/2+8,0,body_z+body[2]/2]) rotate([0,90,0])
+            cylinder(d=18,h=16,center=true,$fn=32);
+        if (show_manifold) {
+            manifold_x=body[0]/2+33;
+            translate([manifold_x,0,body_z+body[2]/2]) rotate([0,90,0])
+                cylinder(d=12,h=44,center=true,$fn=28);
+            translate([manifold_x+20,0,body_z+body[2]/2])
+                rotate([90,0,0]) cylinder(d=10,h=66,center=true,$fn=28);
+            for (y=[-27:10.8:27]) {
+                translate([manifold_x+20,y,body_z+body[2]/2])
+                    rotate([0,0,90]) _aapa45l_barb(length=15);
+                translate([manifold_x+20,y,body_z+body[2]/2+10])
+                    cylinder(d=8,h=10,$fn=24);
+            }
+        }
+        else if (show_straight_connector) {
+            // User-owned configuration: single straight hose adapter fitted
+            // directly to the pump outlet instead of the six-way manifold.
+            connector_x=body[0]/2+18;
+            translate([connector_x,0,body_z+body[2]/2]) rotate([0,90,0])
+                cylinder(d1=16,d2=12,h=14,center=true,$fn=28);
+            translate([body[0]/2+25,0,body_z+body[2]/2])
+                _aapa45l_barb(length=24,base_d=12,tip_d=connector_barb_d);
+        }
+    }
+
+    // Molded cord gland and shortened visual 120 V cord with plug.
+    if (show_cord) {
+        color(dark)
+            translate([-body[0]/2-7,-18,body_z+24]) rotate([0,90,0])
+                cylinder(d=12,h=12,center=true,$fn=24);
+        color([0.035,0.038,0.04]) {
+            _co2_glass_segment([-body[0]/2-10,-18,body_z+24],
+                               [-body[0]/2-35,-26,body_z+16],d=5);
+            _co2_glass_segment([-body[0]/2-35,-26,body_z+16],
+                               [-body[0]/2-60,-46,8],d=5);
+            translate([-body[0]/2-65,-48,8]) cube([18,10,24],center=true);
+        }
+        color([0.72,0.73,0.74])
+            for (y=[-51,-45])
+                translate([-body[0]/2-76,y,12]) cube([8,1.5,5],center=true);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CW-3000-style external CO2 laser water cooler shown by the user.
+// Published pictured envelope: 270 W x 470 D x 370 H mm. Front faces -Y;
+// rear coolant and electrical services face +Y. Z=0 is the resting plane.
+
+CW3000_ENVELOPE=[270,470,370];
+
+module _cw3000_louver_bank(rows=8,cols=3,slot=[34,3,9]) {
+    for (r=[0:rows-1],c=[0:cols-1])
+        translate([(c-(cols-1)/2)*47,0,(r-(rows-1)/2)*30])
+            cube(slot,center=true);
+}
+
+module _cw3000_handle(width=88,depth=28,height=46,bar=13) {
+    hull() {
+        translate([-width/2+bar/2,0,bar/2]) cube([bar,depth,bar],center=true);
+        translate([-width/2+bar/2,0,height-bar/2]) cube([bar,depth,bar],center=true);
+    }
+    hull() {
+        translate([width/2-bar/2,0,bar/2]) cube([bar,depth,bar],center=true);
+        translate([width/2-bar/2,0,height-bar/2]) cube([bar,depth,bar],center=true);
+    }
+    translate([0,0,height-bar/2]) cube([width,depth,bar],center=true);
+}
+
+module _cw3000_hose_port(label_color=[0.05,0.05,0.05]) {
+    color([0.70,0.46,0.15]) {
+        rotate([90,0,0]) cylinder(d=24,h=14,center=true,$fn=32);
+        translate([0,8,0]) rotate([90,0,0])
+            cylinder(d1=16,d2=11,h=24,center=true,$fn=28);
+        for (y=[13,18,23])
+            translate([0,y,0]) rotate([90,0,0])
+                cylinder(d1=14,d2=11,h=2,$fn=24);
+    }
+}
+
+module cw3000_water_cooler(show_rear_services=true,show_cord=true,
+                           colors=true) {
+    w=CW3000_ENVELOPE[0];
+    d=CW3000_ENVELOPE[1];
+    h=CW3000_ENVELOPE[2];
+    shell=colors ? [0.78,0.79,0.78] : [0.68,0.68,0.68];
+    edge=colors ? [0.54,0.56,0.56] : [0.48,0.48,0.48];
+    dark=colors ? [0.045,0.05,0.055] : [0.28,0.28,0.28];
+
+    // Rubber feet and sheet-metal cabinet.
+    color(dark)
+        for (x=[-w/2+24,w/2-24],y=[-d/2+30,d/2-30])
+            translate([x,y,0]) cylinder(d=26,h=15,$fn=28);
+    color(shell)
+        translate([0,0,15+(h-15)/2]) cube([w,d,h-15],center=true);
+    color(edge) {
+        for (x=[-w/2,w/2])
+            translate([x,0,h/2+7]) cube([4,d,h-15],center=true);
+        for (y=[-d/2,d/2])
+            translate([0,y,h/2+7]) cube([w,4,h-15],center=true);
+        translate([0,0,h-5]) cube([w,d,10],center=true);
+    }
+
+    // Two folding-style carry handles on the top panel.
+    color(dark)
+        for (y=[-120,120])
+            translate([0,y,h]) _cw3000_handle();
+
+    // Front display, master rocker, status lamps and printed identification.
+    front_y=-d/2-3;
+    color(dark)
+        translate([-35,front_y,255]) cube([94,10,57],center=true);
+    color([0.08,0.10,0.11])
+        translate([-35,front_y-6,255]) cube([78,2,39],center=true);
+    color([0.55,0.035,0.025])
+        translate([88,front_y-5,263]) cube([28,10,41],center=true);
+    color([0.76,0.03,0.025])
+        translate([-42,front_y-8,198]) rotate([90,0,0])
+            cylinder(d=18,h=8,center=true,$fn=28);
+    color([0.02,0.62,0.14])
+        translate([36,front_y-8,198]) rotate([90,0,0])
+            cylinder(d=18,h=8,center=true,$fn=28);
+    color(dark) {
+        translate([0,front_y-5,92])
+            rotate([90,0,0]) linear_extrude(height=1)
+                text("CW-3000",size=24,halign="center",valign="center");
+        translate([0,front_y-5,53])
+            rotate([90,0,0]) linear_extrude(height=1)
+                text("WATER COOLER",size=15,halign="center",valign="center");
+    }
+
+    // Repeated punched louvers on both side panels and rear fan grille.
+    color([0.36,0.38,0.39]) {
+        for (side=[-1,1])
+            translate([side*(w/2+2),0,185]) rotate([0,90,0])
+                _cw3000_louver_bank(rows=8,cols=3,slot=[32,5,8]);
+        translate([0,d/2+3,205]) rotate([90,0,0])
+            difference() {
+                cylinder(d=150,h=5,center=true,$fn=64);
+                cylinder(d=132,h=7,center=true,$fn=64);
+            }
+        for (a=[0:30:330])
+            translate([sin(a)*60,d/2+6,205+cos(a)*60])
+                rotate([90,0,0]) cube([5,4,125],center=true);
+    }
+
+    if (show_rear_services) {
+        // Clearly separated coolant supply/return ports, drain and alarm jack.
+        translate([-62,d/2+8,92]) _cw3000_hose_port();
+        translate([ 62,d/2+8,92]) _cw3000_hose_port();
+        color([0.15,0.18,0.20])
+            translate([-78,d/2+6,42]) rotate([90,0,0])
+                cylinder(d=18,h=12,center=true,$fn=28);
+        color(dark)
+            translate([80,d/2+5,42]) cube([36,10,25],center=true);
+    }
+
+    if (show_cord) {
+        color(dark) {
+            translate([105,d/2+6,55]) rotate([90,0,0])
+                cylinder(d=13,h=13,center=true,$fn=24);
+            _co2_glass_segment([105,d/2+12,55],[122,d/2+40,35],d=6);
+            _co2_glass_segment([122,d/2+40,35],[150,d/2+78,18],d=6);
+            translate([154,d/2+84,18]) cube([20,12,28],center=true);
+        }
+    }
+}
+
 // Extrude a polygon drawn in the X/Z plane symmetrically along Y.
 module _lp_xz_extrude(points, depth) {
     rotate([90, 0, 0])
@@ -624,6 +990,109 @@ module x_axis_nema17_2040_motor_mount(size=[90,80], thickness=6,
                     translate([0,0,-3]) cylinder(d=5,h=6,center=true);
                 }
         }
+}
+
+// ---------------------------------------------------------------------------
+// Printable enclosure hardware. Dimensions are deliberately parameterized so
+// pin, screw and running clearances can be tuned after a calibration print.
+
+module enclosure_hinge_leaf(width=42, leaf_depth=22, thickness=5,
+                            pin_d=4, pin_clearance=0.35,
+                            screw_d=5.2, moving=false) {
+    knuckle_od=max(thickness*2.4,pin_d+4.5);
+    segment=width/5;
+    difference() {
+        union() {
+            // Leaf edge is tangent to the knuckle and includes two M5 slots.
+            translate([0,leaf_depth/2,thickness/2])
+                cube([width,leaf_depth,thickness],center=true);
+            for (i=moving ? [1,3] : [0,2,4])
+                translate([-width/2+(i+0.5)*segment,0,knuckle_od/2])
+                    rotate([0,90,0])
+                        cylinder(d=knuckle_od,h=segment-0.6,center=true,$fn=36);
+        }
+        // Continuous pin bore through every printed knuckle.
+        translate([0,0,knuckle_od/2]) rotate([0,90,0])
+            cylinder(d=pin_d+pin_clearance,h=width+2,center=true,$fn=28);
+        for (x=[-width/2+10,width/2-10])
+            translate([x,leaf_depth*0.58,thickness/2])
+                hull()
+                    for (y=[-2.5,2.5])
+                        translate([0,y,0]) cylinder(d=screw_d,h=thickness+2,
+                                                   center=true,$fn=24);
+    }
+}
+
+module enclosure_hinge_assembly(width=42, leaf_depth=22, thickness=5,
+                                pin_d=4, open_angle=0,
+                                show_pin=true, colors=true) {
+    dark=colors ? [0.055,0.06,0.065] : [0.55,0.55,0.55];
+    color(dark)
+        enclosure_hinge_leaf(width=width,leaf_depth=leaf_depth,
+                             thickness=thickness,pin_d=pin_d,moving=false);
+    color(dark)
+        rotate([open_angle,0,0]) mirror([0,1,0])
+            enclosure_hinge_leaf(width=width,leaf_depth=leaf_depth,
+                                 thickness=thickness,pin_d=pin_d,moving=true);
+    if (show_pin)
+        color([0.68,0.69,0.70])
+            translate([0,0,max(thickness*2.4,pin_d+4.5)/2])
+                rotate([0,90,0]) cylinder(d=pin_d,h=width+4,center=true,$fn=28);
+}
+
+module enclosure_cam_latch_base(size=[34,28,5], screw_d=5.2,
+                                pivot_d=4.4) {
+    difference() {
+        translate([0,size[1]/2,size[2]/2]) cube(size,center=true);
+        // Base is printed on its broad face; holes accept M5 mounting screws.
+        for (x=[-size[0]/2+7,size[0]/2-7])
+            translate([x,7,size[2]/2])
+                cylinder(d=screw_d,h=size[2]+2,center=true,$fn=24);
+        translate([0,size[1]-7,size[2]/2])
+            cylinder(d=pivot_d,h=size[2]+2,center=true,$fn=24);
+    }
+}
+
+// Lever includes an eccentric nose. Rotating it approximately 90 degrees
+// pulls the panel against the gasket; the M4 pivot remains separate hardware.
+module enclosure_cam_latch_lever(length=42, width=13, thickness=6,
+                                 pivot_d=4.4) {
+    difference() {
+        union() {
+            hull() {
+                cylinder(d=width,h=thickness,$fn=32);
+                translate([0,length-width/2,0])
+                    cylinder(d=width,h=thickness,$fn=32);
+            }
+            translate([width/2-1,-3,0])
+                cube([7,12,thickness],center=false);
+        }
+        translate([0,0,-1]) cylinder(d=pivot_d,h=thickness+2,$fn=24);
+    }
+}
+
+module enclosure_cam_latch_keeper(size=[28,12,8], screw_d=5.2) {
+    difference() {
+        cube(size,center=true);
+        translate([0,0,1.5]) cube([12,size[1]+2,5],center=true);
+        for (x=[-size[0]/2+5,size[0]/2-5])
+            translate([x,0,0]) rotate([90,0,0])
+                cylinder(d=screw_d,h=size[1]+2,center=true,$fn=24);
+    }
+}
+
+module enclosure_cam_latch_assembly(angle=0, colors=true,
+                                    show_hardware=true) {
+    dark=colors ? [0.055,0.06,0.065] : [0.55,0.55,0.55];
+    color(dark) enclosure_cam_latch_base();
+    color(dark)
+        translate([0,6,21]) rotate([90,0,angle])
+            enclosure_cam_latch_lever();
+    color(dark) translate([0,20,-7]) enclosure_cam_latch_keeper();
+    if (show_hardware)
+        color([0.68,0.69,0.70])
+            translate([0,3.2,21]) rotate([90,0,0])
+                cylinder(d=4,h=8,center=true,$fn=24);
 }
 
 // Visual 20-tooth GT2 drive pulley for a 5 mm motor shaft.  The toothed core
