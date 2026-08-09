@@ -1,0 +1,9 @@
+# OpenSCAD generated geometry and render artifacts
+*.png
+*.stl
+*.3mf
+*.off
+*.csg
+
+# macOS metadata
+.DS_Store
