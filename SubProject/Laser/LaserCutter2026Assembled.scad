@@ -15,7 +15,6 @@ use <x_axis_drive.scad>;
 use <gt2-belt.scad>;
 use <mgn12h_2020_adapter.scad>;
 use <y_axis_idler.scad>;
-use <y_axis_belt_tension_anchor.scad>;
 use <kp08_pillow_block_bearing.scad>;
 use <gt2_gears.scad>;
 use <iec_fused_inlet.scad>;
@@ -32,7 +31,7 @@ use <y_drag_chain_brackets.scad>;
 // Interactive positioning
 // ============================================================================
 X_Pos = -375; // Laser head position; approximately -375 min, 345 max
-Y_Pos = -43;   // Gantry position; approximately -43 min, +307 max
+Y_Pos = 100;   // Gantry position; approximately -43 min, +307 max
 y_axis_y_adjustment = 15; // Fine alignment: positive moves both Y rails and X gantry toward +Y
 Y_Stage_Pos = Y_Pos + y_axis_y_adjustment;
 y_rail_center_y = 130 + y_axis_y_adjustment;
@@ -55,7 +54,7 @@ show_y_drag_chain_brackets = true;
 x_drive_flip_y = true; // Put the X stepper on the drag-chain side of the gantry
 x_drive_y_offset = 0; // Belt [-3,+3] sits inside pulley tooth track [-4,+4]
 show_a1_mirror_pedestal = true;
-y_motor_z_adjustment = 0; // Fine belt tension; use ~0.25 mm for a 220 mm belt
+y_motor_z_adjustment = 11.43; // Positions the Y motor for a 200 mm / 100T GT2 belt
 y_motor_pulley_axial_adjustment = 1.5;
 x_drag_chain_fixed_x = 460;
 x_drag_chain_y = 45;
@@ -91,14 +90,14 @@ show_exhaust_shroud = true;
 exhaust_shroud_diameter = 152; // Nominal 6-inch cutting-chamber duct
 exhaust_shroud_depth = 30;
 show_right_panel = true;
-show_bottom_panel = false;
+show_bottom_panel = true;
 show_tube_top_panel = true;
 show_electronics_top_panel = true;
 show_tube_front_bulkhead = true;
 show_tube_floor_panel = true;
 show_tube_access_door = true;
 show_electronics_access_door = true;
-show_electronics_mounting_panel = false;
+show_electronics_mounting_panel = true;
 show_electronics_components = true;
 show_electronics_operator_controls = true;
 show_laser_power_supply = true;
@@ -112,7 +111,7 @@ leveling_foot_adjustment = 12; // Exposed 3/8-16 stud below socket: 0–22.86 mm
 outer_panel_thickness = 2;
 outer_panel_color = [0.24, 0.28, 0.32]; // RGB values from 0 to 1
 //outer_panel_color = [0.84, 0.88, 0.92]; // RGB values from 0 to 1
-outer_panel_opacity = 0.32;
+outer_panel_opacity = 0.92;
 
 // Opaque sheet-metal floor (separate from the acrylic enclosure panels)
 bottom_panel_thickness = 25.4 / 16; // 1/16 inch = 1.5875 mm
@@ -121,23 +120,29 @@ bottom_panel_opacity = 1.0;
 
 // Lid attributes
 show_lid = true;
-show_lid_panels = false; // Acrylic only; the lid extrusion frame remains visible
+show_lid_panels = true; // Acrylic only; the lid extrusion frame remains visible
 show_lid_handle = true;
 lid_handle_width = 180;
 lid_handle_projection = 34;
 lid_panel_color = [0.35, 0.35, 0.35]; // RGB values from 0 to 1
 lid_panel_opacity = 0.10;
-lid_angle = 90;
+lid_angle = 120;
 
 
 //Tube Access
-tube_access_door_angle = 90;       // 0=closed; positive opens outward/upward
-electronics_door_angle = 30;       // 0=closed; positive opens outward/right
-left_lower_panel_pull = 0;        // Pull outward in -X; hide to remove completely
-left_upper_panel_pull = 0;
+tube_access_door_angle = 120;       // 0=closed; positive opens outward/upward
+electronics_door_angle = 120;       // 0=closed; positive opens outward/right
+
+// Left panel doors
+left_upper_panel_pull = 200;
+left_lower_panel_pull = 100;        // Pull outward in -X; hide to remove completely
+
+
+// Tube Floor
 tube_floor_panel_drop = 0;        // Positive value lowers floor for inspection
 
-show_honeycomb=false;
+
+show_honeycomb=true;
 
 
 // ============================================================================

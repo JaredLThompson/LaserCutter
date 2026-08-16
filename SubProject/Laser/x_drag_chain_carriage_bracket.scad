@@ -3,8 +3,11 @@
 // face of MGN12HAdapterPlateAssembly(). The bracket grows toward +Y and +Z.
 
 use <fhcs.scad>;
+use <ruthex_heatset_inserts.scad>;
 
 $fn = 48;
+
+x_drag_chain_carriage_bracket();
 
 module x_drag_chain_carriage_bracket(show_hardware=true,
                                      body_color=[0.70, 0.04, 0.06],
@@ -16,7 +19,7 @@ module x_drag_chain_carriage_bracket(show_hardware=true,
     vertical_thickness = 6;
     shelf_width = 54;
     shelf_depth = 45;
-    shelf_thickness = 4;
+    shelf_thickness = 6;
     chain_bolt_x = 10;
     chain_bolt_y = 25;
 
@@ -36,8 +39,12 @@ module x_drag_chain_carriage_bracket(show_hardware=true,
                     cube([shelf_width, shelf_depth, shelf_thickness],
                          center=true);
 
+                // Local 6 mm-thick boss for a Ruthex RX-M3x5x4 insert.
+                translate([chain_bolt_x, chain_bolt_y, 0])
+                    ruthex_m3_boss(top_z=shelf_top_z);
+
                 // Two triangular side gussets resist cable-chain torque.
-                for (x = [-18, 18])
+                for (x = [-19, 19])
                     hull() {
                         translate([x, vertical_thickness,
                                    shelf_top_z - 18])
@@ -56,13 +63,15 @@ module x_drag_chain_carriage_bracket(show_hardware=true,
                         cylinder(d=3.4, h=vertical_thickness + 2,
                                  center=true);
 
-            // M4 clearance hole receives the red connector's adjustment slot.
-            translate([chain_bolt_x, chain_bolt_y,
-                       shelf_top_z - shelf_thickness / 2])
-                cylinder(d=4.4, h=shelf_thickness + 2, center=true);
+            // Straight 4.4 mm through pocket for the M3 heat-set insert.
+            translate([chain_bolt_x, chain_bolt_y, 0])
+                ruthex_m3_pocket(top_z=shelf_top_z);
         }
 
     if (show_hardware) {
+        translate([chain_bolt_x, chain_bolt_y, 0])
+            ruthex_rx_m3x5x4(top_z=shelf_top_z);
+
         // Two M3 SHCS heads on the accessible outside face.
         color([0.62, 0.63, 0.64])
             for (x = [-mount_hole_spacing / 2,
@@ -75,7 +84,7 @@ module x_drag_chain_carriage_bracket(show_hardware=true,
                         cylinder(d=3, h=10, center=true);
             }
 
-        // M4 FHCS installs from above and seats flush in the countersunk,
+        // M3 FHCS installs from above and seats flush in the countersunk,
         // inverted drag-chain connector; its nut remains beneath the shelf.
         // The library model's shaft points +Z and its head extends toward -Z.
         // Flip it so the FHCS installs downward from the accessible top face.
@@ -83,11 +92,7 @@ module x_drag_chain_carriage_bracket(show_hardware=true,
         // FHCS head/shaft junction therefore begins at that same interface.
         translate([chain_bolt_x, chain_bolt_y, shelf_top_z])
             rotate([180, 0, 0])
-                m4_fhcs(length=14);
-        color([0.42, 0.43, 0.44])
-            translate([chain_bolt_x, chain_bolt_y,
-                       shelf_top_z - shelf_thickness - 2])
-                cylinder(d=7.7, h=3.2, center=true, $fn=6);
+                m3_fhcs(length=8);
     }
 }
 
