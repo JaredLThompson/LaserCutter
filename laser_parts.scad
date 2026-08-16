@@ -271,6 +271,91 @@ module active_aqua_aapa45l(show_manifold=false,show_straight_connector=true,
 }
 
 // ---------------------------------------------------------------------------
+// TAILONZ 2V025-08 two-position/two-way normally-closed air solenoid.
+// User-owned version: 24 VDC coil and two 1/4-inch NPT ports.
+// Product-image envelope is 1.17 x 2.2 in (29.7 x 55.9 mm); the unlisted
+// depth is modeled from the standard 2V025-08 family envelope. Z=0 is the
+// valve-body resting plane and flow runs from local -X (IN) to +X (OUT).
+
+TAILONZ_2V025_08_ENVELOPE=[29.7,24,55.9];
+
+module _tailonz_push_fitting_1_4(axis_sign=1,tube_d=8) {
+    steel=[0.70,0.72,0.73];
+    dark=[0.055,0.06,0.065];
+    blue=[0.05,0.35,0.92];
+
+    scale([axis_sign,1,1]) rotate([0,90,0]) {
+        color(steel) {
+            // Installed male thread, hex wrench body and tapered shoulder.
+            cylinder(d=11.8,h=7,$fn=32);
+            translate([0,0,7]) cylinder(d=15.5,h=8,$fn=6);
+            translate([0,0,15]) cylinder(d1=13,d2=10.5,h=4,$fn=32);
+        }
+        color(dark)
+            translate([0,0,19]) cylinder(d=12,h=4,$fn=32);
+        color(blue)
+            translate([0,0,22])
+                difference() {
+                    cylinder(d=12.5,h=3,$fn=32);
+                    translate([0,0,-0.1]) cylinder(d=tube_d,h=3.2,$fn=24);
+                }
+    }
+}
+
+module tailonz_2v025_08_solenoid(show_fittings=true,show_wires=true,
+                                 tube_d=8,colors=true) {
+    body=[29.7,24,25];
+    coil=[25.5,22,23.3];
+    cap_d=27.9;
+    cap_h=7.6;
+    valve=colors ? [0.72,0.73,0.74] : [0.62,0.62,0.62];
+    coil_color=colors ? [0.035,0.038,0.042] : [0.32,0.32,0.32];
+
+    // Machined aluminum valve body and thin coil-retaining plate.
+    color(valve) {
+        translate([0,0,body[2]/2]) cube(body,center=true);
+        translate([0,0,body[2]+1]) cube([31.5,25.5,2],center=true);
+        // Shallow circular port bosses on the IN and OUT faces.
+        for (sx=[-1,1])
+            translate([sx*(body[0]/2+1.5),0,12.5]) rotate([0,90,0])
+                cylinder(d=17,h=3,center=true,$fn=32);
+    }
+
+    // Encapsulated AC coil, center pole and scalloped manual-retainer cap.
+    color(coil_color) {
+        translate([0,0,body[2]+2+coil[2]/2]) cube(coil,center=true);
+        translate([0,0,body[2]+2+coil[2]]) cylinder(d=22,h=2,$fn=40);
+        translate([0,0,body[2]+4+coil[2]])
+            cylinder(d=cap_d,h=cap_h,$fn=8);
+        // Molded lead strain relief on the rear side of the coil.
+        translate([0,coil[1]/2+2,body[2]+13])
+            cube([11,6,10],center=true);
+    }
+
+    if (show_fittings)
+        for (sx=[-1,1])
+            translate([sx*body[0]/2,0,12.5])
+                _tailonz_push_fitting_1_4(axis_sign=sx,tube_d=tube_d);
+
+    if (show_wires) {
+        wire_start=[0,coil[1]/2+5,body[2]+13];
+        wire_end_y=66;
+        color([0.78,0.02,0.025]) {
+            _co2_glass_segment([wire_start[0]-2,wire_start[1],wire_start[2]],
+                               [-5,40,42],d=1.7);
+            _co2_glass_segment([-5,40,42],[-5,wire_end_y,37],d=1.7);
+        }
+        color([0.025,0.025,0.028]) {
+            _co2_glass_segment([wire_start[0]+2,wire_start[1],wire_start[2]],
+                               [5,40,39],d=1.7);
+            _co2_glass_segment([5,40,39],[5,wire_end_y,34],d=1.7);
+        }
+        color([0.90,0.90,0.87])
+            translate([0,wire_end_y+5,35.5]) cube([17,12,9],center=true);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // CW-3000-style external CO2 laser water cooler shown by the user.
 // Published pictured envelope: 270 W x 470 D x 370 H mm. Front faces -Y;
 // rear coolant and electrical services face +Y. Z=0 is the resting plane.
@@ -829,42 +914,39 @@ module _aluminum_extrusion_slot_2d(slot_width=6, cavity_width=11,
 }
 
 module _aluminum_2020_profile_2d(slot_width=6, cavity_width=11,
-                                 center_bore=4.2) {
+                                 center_bore=5) {
+    // Dimensioned profile supplied from the user's existing extrusion model.
+    // slot_width/cavity_width remain in the public API for compatibility;
+    // this known stock uses a measured 5.26 mm opening geometry.
     difference() {
-        // Slightly relieved corners approximate a standard rounded profile.
-        offset(r=0.8) offset(delta=-0.8) square([20,20],center=true);
-        circle(d=center_bore);
-        for (a=[0,90,180,270])
-            rotate(a)
-                translate([0,10])
-                    _aluminum_extrusion_slot_2d(
-                        slot_width=slot_width,cavity_width=cavity_width);
+        square([20,20],center=true);
+        square([17,17],center=true);
+        square([40,5.26],center=true);
+        rotate([0,0,90]) square([40,5.26],center=true);
     }
+
+    difference() {
+        union() {
+            square([7.32,7.32],center=true);
+            rotate([0,0,45]) square([1.5,25],center=true);
+            rotate([0,0,-45]) square([1.5,25],center=true);
+        }
+        circle(d=center_bore,$fn=16);
+    }
+
+    for (x=[-7.9975,7.9975], y=[-7.9975,7.9975])
+        translate([x,y]) square([4.005,4.005],center=true);
 }
 
 module _aluminum_2040_profile_2d(slot_width=6, cavity_width=11,
-                                 center_bore=4.2) {
-    difference() {
-        offset(r=0.8) offset(delta=-0.8) square([40,20],center=true);
-
-        // Two core bores, one for each nominal 20 mm cell.
-        for (x=[-10,10]) translate([x,0]) circle(d=center_bore);
-
-        // Two slots on each 40 mm face.
-        for (x=[-10,10], a=[0,180])
-            rotate(a) translate([x,10])
-                _aluminum_extrusion_slot_2d(
-                    slot_width=slot_width,cavity_width=cavity_width);
-
-        // One centered slot on each 20 mm end face.
-        for (a=[90,270])
-            rotate(a) translate([0,20])
-                _aluminum_extrusion_slot_2d(
-                    slot_width=slot_width,cavity_width=cavity_width);
-
-        // Internal lightening cavities while retaining a central structural web.
-        for (x=[-10,10], y=[-5.7,5.7])
-            translate([x,y]) circle(d=4.8,$fn=24);
+                                 center_bore=5) {
+    union() {
+        // A 2040 is two connected 20 mm cells. Their touching face lips and
+        // webs merge into the central wall while retaining both core bores.
+        for (x=[-10,10]) translate([x,0])
+            _aluminum_2020_profile_2d(slot_width=slot_width,
+                                      cavity_width=cavity_width,
+                                      center_bore=center_bore);
     }
 }
 
@@ -873,7 +955,7 @@ module _aluminum_2040_profile_2d(slot_width=6, cavity_width=11,
  * center=true places the midpoint at Z=0, otherwise the bottom is at Z=0.
  */
 module aluminum_extrusion_2020(length=100, center=false, black=false,
-                               slot_width=6, center_bore=4.2) {
+                               slot_width=6, center_bore=5) {
     color(black ? ALUMINUM_BLACK : ALUMINUM_CLEAR)
         linear_extrude(height=length,center=center,convexity=10)
             _aluminum_2020_profile_2d(
@@ -884,7 +966,7 @@ module aluminum_extrusion_2020(length=100, center=false, black=false,
  * 20 x 40 mm T-slot extrusion. The 40 mm dimension follows X and length is Z.
  */
 module aluminum_extrusion_2040(length=100, center=false, black=false,
-                               slot_width=6, center_bore=4.2) {
+                               slot_width=6, center_bore=5) {
     color(black ? ALUMINUM_BLACK : ALUMINUM_CLEAR)
         linear_extrude(height=length,center=center,convexity=10)
             _aluminum_2040_profile_2d(
@@ -1531,6 +1613,93 @@ module microstep_driver_pair(spacing=82,colors=true) {
 }
 
 // ---------------------------------------------------------------------------
+// IEC/EN 60715 35 mm top-hat DIN rail and simple mounting accessories.
+// Local X is rail length, Y projects away from the mounting wall, and Z is
+// the nominal 35 mm rail width.  These are layout envelopes, not spring-tool
+// manufacturing drawings.
+
+module din_rail_ts35(length=300, colors=true) {
+    steel=colors ? [0.66,0.68,0.70] : [0.58,0.58,0.58];
+    color(steel)
+        linear_extrude(height=length,center=true)
+            polygon([[-17.5,0],[-17.5,1.2],[-13,1.2],[-11,7.5],
+                     [11,7.5],[13,1.2],[17.5,1.2],[17.5,0]]);
+}
+
+// Backplate that lets a non-DIN stepper driver clip onto TS35 rail.
+module din_driver_adapter(width=64,height=106,thickness=4,colors=true) {
+    dark=colors ? [0.07,0.075,0.08] : [0.38,0.38,0.38];
+    color(dark) {
+        translate([0,thickness/2,0]) cube([width,thickness,height],center=true);
+        // Fixed upper hook and flexible-looking lower latch envelope.
+        translate([0,5,height/2-13]) cube([38,10,5],center=true);
+        translate([0,5,-height/2+13]) cube([38,10,5],center=true);
+        translate([0,8,-height/2+7]) cube([13,8,10],center=true);
+    }
+}
+
+module din_mosfet_output_24v(width=36,colors=true) {
+    body=colors ? [0.08,0.10,0.12] : [0.40,0.40,0.40];
+    green=colors ? [0.10,0.48,0.22] : [0.55,0.55,0.55];
+    color(body) cube([width,30,68],center=true);
+    color(green)
+        for (z=[-20,20]) translate([0,-17,z]) cube([width-8,8,14],center=true);
+    color([0.08,0.75,0.16]) translate([10,-18,0]) sphere(d=4,$fn=20);
+}
+
+module din_terminal_block_bank(count=8,pitch=6.2,colors=true) {
+    for (i=[0:count-1])
+        color(colors ? (i<2 ? [0.18,0.48,0.88] : [0.82,0.50,0.08])
+                     : [0.58,0.58,0.58])
+            translate([(i-(count-1)/2)*pitch,0,0])
+                cube([pitch-0.4,28,46],center=true);
+}
+
+// ---------------------------------------------------------------------------
+// External 2020 panel retainer inspired by the serviceable Voron enclosure
+// approach.  The printable bridge spreads load around an M5 clearance hole;
+// its shallow underside pad bears on the removable sheet while the screw
+// engages a roll-in T-nut in the extrusion slot behind it.
+//
+// Default orientation is print-ready on Z=0.  In an assembly, rotate the
+// module so local Z follows the panel-normal/screw axis.
+module external_2020_panel_clip(panel_thickness=3,
+                                size=[24,18,5],
+                                screw_d=5.5,
+                                show_hardware=true,
+                                colors=true,
+                                body_color=undef) {
+    body=colors ? (is_undef(body_color) ? [0.055,0.06,0.065]
+                                             : body_color)
+                : [0.42,0.42,0.42];
+    difference() {
+        color(body)
+            union() {
+                // Rounded-looking bridge represented with a hull so it is
+                // strong around the screw without bulky square corners.
+                hull()
+                    for (x=[-size[0]/2+4,size[0]/2-4])
+                        translate([x,0,0]) cylinder(d=size[1],h=size[2],$fn=28);
+                // The bridge begins exactly at Z=0, its panel-contact plane.
+                // Do not extend a pressure pad below this plane: doing so
+                // buries printable geometry inside the removable sheet.
+            }
+        translate([0,0,-2]) cylinder(d=screw_d,h=size[2]+5,$fn=28);
+        // Counterbore keeps the M5 head nearly flush with the clip face.
+        translate([0,0,size[2]-2]) cylinder(d=9.5,h=4,$fn=28);
+    }
+
+    if (show_hardware) {
+        color([0.70,0.71,0.72])
+            translate([0,0,size[2]-1.2]) cylinder(d=9,h=2.2,$fn=28);
+        // T-nut envelope. This is the only modeled component intentionally
+        // inside the extrusion slot when the panel pull distance is zero.
+        color([0.43,0.44,0.45])
+            translate([0,0,-panel_thickness-3]) cube([10,16,4],center=true);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // STEPPERONLINE 17HS19-2004S1 NEMA 17 motor (Amazon ASIN B00PNEQKC0).
 // Motor axis=Z; body occupies Z=0..body_length and the shaft projects +Z.
 
@@ -1625,6 +1794,60 @@ module nema17_stepper_pair(spacing=62,colors=true) {
     for (x=[-spacing/2,spacing/2])
         translate([x,0,0])
             nema17_stepper_17hs19(colors=colors);
+}
+
+/*
+ * Panel-mount IEC C14 mains inlet with integral fuse drawer and illuminated
+ * rocker switch. Dimensions follow the advertised 2.24 x 1.97 x 1.38 inch
+ * envelope. Local XY is the panel face; Z=0 is the panel's outside surface
+ * and the body extends in +Z. The flange extends toward -Z.
+ */
+module iec_c14_fused_inlet(show_terminals=true) {
+    flange_w=56.9;
+    flange_h=50.0;
+    flange_t=4;
+    body_w=47.5;
+    body_h=32;
+    body_d=31;
+    screw_spacing=39.88; // advertised 1.57 in
+
+    flange_outline=[[-28.45,-18],[-22,-25],[22,-25],[28.45,-18],
+                    [28.45,18],[22,25],[-22,25],[-28.45,18]];
+
+    color([0.055,0.058,0.062]) {
+        // Front mounting flange with two real 3.6 mm fixing holes.
+        translate([0,0,-flange_t])
+            linear_extrude(height=flange_t)
+                difference() {
+                    polygon(flange_outline);
+                    for (x=[-screw_spacing/2,screw_spacing/2])
+                        translate([x,0]) circle(d=3.6,$fn=24);
+                }
+        // Rear molded body passing through the panel cutout.
+        translate([0,0,body_d/2])
+            cube([body_w,body_h,body_d],center=true);
+    }
+
+    // Illuminated mains rocker, fuse drawer, and recessed C14 appliance inlet.
+    color([0.78,0.025,0.02])
+        translate([-14,10,-5.2]) cube([19,15,2.4],center=true);
+    color([0.075,0.078,0.082]) {
+        translate([10,11,-5.2]) cube([23,8,2.2],center=true);
+        translate([10,-9,-5.3]) cube([25,20,2.6],center=true);
+    }
+    // Three visible C14 blades inside the recessed socket.
+    color([0.70,0.71,0.72]) {
+        for (x=[4,16])
+            translate([x,-7,-6.8]) cube([3,7,1.2],center=true);
+        translate([10,-15,-6.8]) cube([3,7,1.2],center=true);
+        for (x=[-screw_spacing/2,screw_spacing/2])
+            translate([x,0,-4.8]) cylinder(d=3.3,h=1.6,center=true,$fn=24);
+    }
+
+    if (show_terminals)
+        color([0.72,0.73,0.74])
+            for (x=[-10,0,10])
+                translate([x,0,body_d+5]) cube([5,1.2,10],center=true);
 }
 
 // Uncomment for a direct preview when opening this file by itself.

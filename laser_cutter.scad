@@ -16,7 +16,7 @@ $fn=36;
 
 
 /* [Enclosure visibility] */
-show_enclosure=true;         // master enclosure switch: panels + lid
+show_enclosure=false;         // master enclosure switch: panels + lid
 show_panels=true;            // master skin switch for an unobstructed assembly view
 show_side_panels=true;       // left and right outer skins
 show_left_lower_access_panel=true;
@@ -28,9 +28,15 @@ show_rear_tube_hatch=true;
 show_control_panel=true;
 show_lid_glazing=true;
 show_lid_frame=true;
-lid_angle=24;                // [0:5:75] 0=closed; positive raises front edge
-rear_tube_hatch_angle=0;     // [0:5:80] 0=closed; opens outward/upward
-electronics_service_panel_angle=0; // [0:5:100] right-side bay access
+show_tube_cavity_cap=true;  // fixed/removable roof over full-width tube bay
+gasket_color=[0.10,0.85,0.18]; // inspection green; use [0.035,0.038,0.04] for black
+panel_clip_color=[1.00,0.42,0.05]; // inspection orange; independent of extrusion color
+left_lower_panel_pull=0;     // [0:10:250] outward (-X) exploded-view distance
+left_upper_panel_pull=0;     // [0:10:250] outward (-X) exploded-view distance
+lid_gasket_diameter=6;        // silicone tubing pressed into the lid extrusion slot
+lid_angle=45; //24;                // [0:5:75] 0=closed; positive raises front edge
+rear_tube_hatch_angle=90;     // [0:5:80] 0=closed; opens outward/upward
+electronics_service_panel_angle=100; // [0:5:100] right-side bay access
 
 /* [Front fascia] */
 front_fascia_start_z=205;    // seam between lower service panel and slope
@@ -46,7 +52,7 @@ x_rail_length=800;
 /* [Motion position / collision review] */
 x_axis_position=0;           // [-330:5:330]
 y_axis_position=0;           // [-150:5:150]
-animate_motion=false;        // use View > Animate; $t sweeps the work envelope
+animate_motion=true;        // use View > Animate; $t sweeps the work envelope
 show_motion_clearance=false; // transparent head/motor keep-out volumes
 x_carriage_position=animate_motion ? -330+660*$t : x_axis_position;
 y_carriage_position=animate_motion
@@ -57,13 +63,18 @@ frame_width=1219.2;           // one full 48 in 2020 stick
 frame_depth=650;
 frame_height=360;
 // Shared enclosure-face datums. A 20 mm front/rear rail is centered 10 mm
-// inside the nominal envelope. The 3 mm skin sits inside it with its visible
-// face exactly flush to that same envelope.
+// inside the nominal envelope. The removable 3 mm front skin mounts outside
+// the extrusion: its inner face touches the rail's outer face without sharing
+// any volume with it.
 front_outer_y=-frame_depth/2;
 rear_outer_y=frame_depth/2;
 front_rail_y=front_outer_y+10;
 rear_rail_y=rear_outer_y-10;
-front_skin_y=front_outer_y+1.5;
+rear_panel_t=3;
+// External rear-skin plane. The rear 2020 occupies Y=305..325, so the
+// sheets' inner faces touch Y=325 and all rigid material extends outward.
+rear_skin_y=rear_outer_y+rear_panel_t/2;
+front_skin_y=front_outer_y-1.5;
 // Upper chassis rail center.  A 20 mm profile therefore ends at Z=340,
 // exactly 20 mm below the nominal enclosure top and 10 mm below the closed
 // lid-frame bottom plane.
@@ -79,9 +90,32 @@ motion_center_x=-80;
 // compact but usable electronics bay while recovering real left-wall and lid
 // clearances.  The cutting chamber remains fully sealed at this datum.
 electronics_divider_x=405;
+// Rear tube-service opening is bounded by the inside face of the left 2040
+// upright and the tube-side face of the electronics-divider 2020.  The hatch,
+// rear-panel cutout, gasket, hinges, and latches all derive from these datums.
+rear_tube_hatch_left=-frame_width/2+30;
+rear_tube_hatch_right=electronics_divider_x-10;
+rear_tube_hatch_cx=(rear_tube_hatch_left+rear_tube_hatch_right)/2;
+rear_tube_hatch_w=rear_tube_hatch_right-rear_tube_hatch_left;
+// The 3 mm smoke-isolation sheet is face-mounted on the cutting-chamber
+// side (-X) of the divider 2020. The extrusion occupies X=395..415 and the
+// sheet occupies X=392..395: tangent to the frame, never inserted into its
+// slot or profile.
+electronics_bulkhead_t=3;
+electronics_bulkhead_x=electronics_divider_x-10-electronics_bulkhead_t/2;
+// Rear electronics-bay mains-entry location.
+iec_inlet_x=(electronics_divider_x+10+(frame_width/2-22.5))/2;
+iec_inlet_z=112;
 // Horizontal center of the exposed upper electronics-bay front panel.
 // Keep the galvanometer body and its sheet-metal opening on this datum.
 galvanometer_x=(electronics_divider_x+10+(frame_width-45)/2)/2;
+// Front electronics controls use a compact triangular layout rather than a
+// crowded single row.  These shared datums drive both panel cutouts and parts.
+estop_x=465;
+keyswitch_x=525;
+upper_control_z=135;
+pendant_x=(estop_x+keyswitch_x)/2;
+pendant_z=70;
 y_rail_offset=400;
 estimated_work_area=[660,300];
 cutting_table_z=72;           // adjustable honeycomb work-surface datum
@@ -106,9 +140,12 @@ left_optics_envelope=55;
 left_optics_wall_clearance=5;
 left_optics_x=left_skin_inner_x+left_optics_envelope
               +left_optics_wall_clearance;
-tube_tunnel_end_x=540;       // leaves 40 mm before the right frame upright
-tube_tunnel_size_y=170;      // rear service alcove width
-tube_tunnel_size_z=140;      // clearance for terminal, hoses and HV insulation
+// The tube compartment occupies the complete 48-inch machine width.  Its
+// front wall separates it from both the cutting chamber and the front-right
+// electronics bay; this replaces the former small cubical terminal tunnel.
+tube_cavity_front_y=145;
+tube_cavity_floor_z=184;
+tube_cavity_top_z=340;
 
 
 /* [Assembly visibility] */
@@ -388,64 +425,31 @@ module base_frame() {
     translate([electronics_divider_x,0,upper_chassis_z])
         extrusion2020_y(frame_depth-20);
 
-    // Structural frame for the isolated tube pocket. Two complete Y-Z
-    // rectangles are joined by four X-running rails, so the tunnel skins are
-    // cladding rather than unsupported sheet. Rails sit just inside the
-    // nominal 170 x 140 mm tunnel envelope, leaving a 130 x 100 mm clear
-    // aperture around the 50 mm tube, terminal insulation and water lines.
+    // Close the top-front corner of the electronics bay with a real 2020
+    // member.  It butts between the right face of the divider rail and the
+    // left face of the outer-right side rail, rather than overlapping either
+    // extrusion.  This member supports the front edge of the control deck.
+    electronics_front_left=electronics_divider_x+10;
+    electronics_front_right=outer_right;
+    electronics_front_length=electronics_front_right-electronics_front_left;
+    electronics_front_cx=(electronics_front_left+electronics_front_right)/2;
+    translate([electronics_front_cx,front_rail_y,upper_chassis_z])
+        extrusion2020_x(electronics_front_length);
+
+    // Full-width structural frame at the front of the rear tube compartment.
+    // The existing rear and side perimeter members complete the compartment;
+    // this single bulkhead frame replaces the former little four-sided cube.
     if (show_tube_pocket_frame) {
-        pocket_x0=electronics_divider_x;
-        pocket_x1=tube_tunnel_end_x;
-        pocket_xc=(pocket_x0+pocket_x1)/2;
-        pocket_len=pocket_x1-pocket_x0;
-        pocket_y_half=tube_tunnel_size_y/2-10;
-        pocket_z_half=tube_tunnel_size_z/2-10;
-        pocket_y_clear=tube_tunnel_size_y-40;
-        pocket_z_clear=tube_tunnel_size_z-40;
-
-        // Mouth and closed-end rectangular frames.
-        for (x=[pocket_x0,pocket_x1]) {
-            for (z=[optical_axis_z-pocket_z_half,
-                    optical_axis_z+pocket_z_half])
-                translate([x,tube_shelf_y,z])
-                    extrusion2020_y(tube_tunnel_size_y);
-            for (y=[tube_shelf_y-pocket_y_half,
-                    tube_shelf_y+pocket_y_half])
-                translate([x,y,optical_axis_z-pocket_z_half+10])
-                    extrusion2020_z(pocket_z_clear);
-        }
-
-        // Four longitudinal corner rails close the load path in depth.
-        for (y=[tube_shelf_y-pocket_y_half,
-                tube_shelf_y+pocket_y_half],
-             z=[optical_axis_z-pocket_z_half,
-                optical_axis_z+pocket_z_half])
-            translate([pocket_xc,y,z]) extrusion2020_x(pocket_len);
-
-        // The lower end-frame corners bear on short posts down to the
-        // electronics-bay foundation instead of floating above its floor.
-        support_bottom_z=88;
-        support_top_z=optical_axis_z-pocket_z_half-10;
-        for (x=[pocket_x0,pocket_x1],
-             y=[tube_shelf_y-pocket_y_half,
-                tube_shelf_y+pocket_y_half])
-            translate([x,y,support_bottom_z])
-                extrusion2020_z(support_top_z-support_bottom_z);
+        cavity_frame_w=frame_width-40;
+        cavity_frame_h=tube_cavity_top_z-tube_cavity_floor_z;
+        for (z=[tube_cavity_floor_z+10,tube_cavity_top_z-10])
+            translate([0,tube_cavity_front_y,z])
+                extrusion2020_x(cavity_frame_w);
+        for (x=[-frame_width/2+20,frame_width/2-20])
+            translate([x,tube_cavity_front_y,tube_cavity_floor_z+10])
+                extrusion2020_z(cavity_frame_h-20);
     }
 
-    // Gasket sits only on the supported side/rear lid ledges.  The front is
-    // the 20 mm recessed pocket wall, not a fourth landing rail.
-    gasket_left=outer_left-10;
-    gasket_right=electronics_divider_x;
-    gasket_length=gasket_right-gasket_left;
-    gasket_center_x=(gasket_left+gasket_right)/2;
-    color([0.035,0.038,0.04]) {
-        translate([gasket_center_x,rear_rail_y,upper_chassis_z+15])
-            cube([gasket_length,8,10],center=true);
-        for (x=[gasket_left,gasket_right])
-            translate([x,0,upper_chassis_z+15])
-                cube([8,frame_depth-40,10],center=true);
-    }
     color([0.18,0.20,0.21,0.55])
         translate([(electronics_divider_x+frame_width/2-20)/2,0,65])
             cube([frame_width/2-20-electronics_divider_x,frame_depth-80,3],center=true);
@@ -802,9 +806,9 @@ module tube_and_optics() {
     // moving this datum carries the pedestals, bridge and beam path together.
     tube_output_x=tube_center_x-tube_length/2;
     tube_terminal_x=tube_center_x+tube_length/2;
-    // The lid's electronics-side 2020 rail occupies the 20 mm immediately
-    // inside its right edge (electronics_divider_x-3).
-    lid_edge_rail_inner_x=electronics_divider_x-23;
+    // The lid's electronics-side 2020 rail ends 2 mm before the divider
+    // post's left face.  Its inner edge is another 20 mm toward the tube.
+    lid_edge_rail_inner_x=electronics_divider_x-10-2-20;
     a1_x=left_optics_x;
     left_y_rail_x=motion_center_x-y_rail_offset;
     gantry_left_x=motion_center_x-820/2;
@@ -896,11 +900,48 @@ module tube_and_optics() {
 
 module electronics_bay() {
     if (show_electronics) {
-        // Low rear shelf keeps HV supply separated from the motion electronics.
-        translate([500,180,67])
-            rotate([0,0,90]) vevor_laser_power_supply_50w(show_cable=false);
-        translate([500,-95,67])
-            microstep_driver_pair(spacing=82);
+        // The bay has about 155 mm of clear X width between the divider and
+        // right perimeter extrusion.  Keep the PSU's 139.7 mm dimension on X;
+        // the former 90-degree rotation put its 177.8 mm dimension through
+        // both the divider and the tube-pocket uprights.
+        //
+        // Its rear edge stops ahead of the tube-pocket frame at Y=145, while
+        // its terminal face points toward the open front service area.
+        translate([500,20,67])
+            vevor_laser_power_supply_50w(show_cable=false);
+
+        // Two TS35 rails use the smoke-isolation divider as a vertical DIN
+        // backboard. Heavy equipment remains frame-supported; controls and
+        // terminals no longer consume the floor.
+        // Rail backs bear on the electronics-side surface of the isolation
+        // sheet.  The hat section projects into the service bay (+X), not
+        // through the sheet or divider extrusion.
+        din_x=electronics_bulkhead_x+electronics_bulkhead_t/2;
+        din_y=-85;
+        din_len=400;
+        for (z=[145,255])
+            translate([din_x,din_y,z]) rotate([0,90,-90])
+                din_rail_ts35(length=din_len);
+
+        // Purchased drivers bolt to printable DIN carrier plates. Their
+        // terminals face the service door and remain individually removable.
+        for (y=[-205,-125]) {
+            translate([din_x+8,y,196]) rotate([0,0,90])
+                din_driver_adapter(width=64,height=106);
+            translate([din_x+13,y,196]) rotate([0,90,0]) rotate([0,0,90])
+                microstep_driver_4a();
+        }
+
+        // Low-side, flyback-protected MOSFET output for the ordered 24 VDC
+        // air valve, plus adjacent field-wiring terminals.
+        translate([din_x+17,-20,255]) rotate([0,0,90])
+            din_mosfet_output_24v();
+        translate([din_x+17,55,255]) rotate([0,0,90])
+            din_terminal_block_bank(count=8);
+
+        echo(str("Electronics clearances: PSU/bulkhead=",
+                 500-139.7/2-(electronics_bulkhead_x+electronics_bulkhead_t/2),
+                 " mm; PSU/right rail=9.75 mm; PSU/rear tube bulkhead >30 mm"));
     }
 }
 
@@ -908,11 +949,20 @@ module enclosure_side_panels() {
     panel=[0.74,0.76,0.75,0.72];
     // Opaque lower side and rear panels fitted inside the extrusion frame.
     if (show_panels && show_side_panels) {
-        // The former one-piece left skin is now two lift-off access panels.
-        // There is no fixed horizontal mullion: removing both panels exposes
-        // nearly the complete perimeter opening for oversized workpieces.
-        left_panel_x=-frame_width/2+10;
-        left_panel_y_span=frame_depth-45;
+        // The former one-piece left skin is now two external lift-off access
+        // panels.  Their inner faces touch the outside faces of the 2020s;
+        // unlike the earlier datum, neither sheet intersects the aluminum.
+        // There is no fixed horizontal mullion, so removing both sheets
+        // exposes the complete side opening for oversized workpieces.
+        left_panel_thickness=3;
+        // The left perimeter members are 2040s with their 40 mm dimension
+        // across X.  Their centers are at -frame_width/2+20, so the true
+        // outside face is -frame_width/2 (not center-10 as for a 2020).
+        // Put the sheet's inner face exactly on that plane: external contact,
+        // zero aluminum/panel overlap.
+        left_frame_outer_x=-frame_width/2;
+        left_panel_x=left_frame_outer_x-left_panel_thickness/2;
+        left_panel_y_span=frame_depth;
         left_panel_bottom=22.5;
         left_panel_split=180;
         left_panel_top=frame_height-22.5;
@@ -923,32 +973,49 @@ module enclosure_side_panels() {
         upper_panel_h=left_panel_top-upper_panel_bottom;
 
         if (show_left_lower_access_panel)
-            left_access_panel(left_panel_x,0,
+            left_access_panel(left_panel_x-left_lower_panel_pull,0,
                               (left_panel_bottom+lower_panel_top)/2,
                               left_panel_y_span,lower_panel_h,
                               handle_z=112);
         if (show_left_upper_access_panel)
-            left_access_panel(left_panel_x,0,
+            left_access_panel(left_panel_x-left_upper_panel_pull,0,
                               (upper_panel_bottom+left_panel_top)/2,
                               left_panel_y_span,upper_panel_h,
                               handle_z=258);
 
-        // Compressible gasket remains on the fixed perimeter plus the
-        // shared panel seam; it does not obstruct the opening when removed.
-        color([0.035,0.038,0.04]) {
-            for (y=[-left_panel_y_span/2,left_panel_y_span/2])
-                translate([left_panel_x+2,y,frame_height/2])
-                    cube([5,8,frame_height-45],center=true);
-            for (z=[left_panel_bottom,left_panel_top])
-                translate([left_panel_x+2,0,z])
-                    cube([5,left_panel_y_span,8],center=true);
+        // Compressible gasket remains on the fixed front/rear/bottom
+        // perimeter.  The center seal and its backing leave with the lower
+        // panel, so no structural bar remains across the access opening.
+        color(gasket_color) {
+            for (y=[front_rail_y,rear_rail_y])
+                translate([left_frame_outer_x-0.5,y,frame_height/2])
+                    cube([1,8,frame_height-45],center=true);
+            // Bottom seal only.  The former top run was both unnecessary
+            // and visually confused with the lid's left-side tubing seal.
+            translate([left_frame_outer_x-0.5,0,left_panel_bottom])
+                cube([1,left_panel_y_span-20,8],center=true);
         }
-        // The seam seal belongs to the removable sheets, not the chassis;
-        // it leaves the opening when both panels are taken off.
-        if (show_left_lower_access_panel || show_left_upper_access_panel)
-            color([0.035,0.038,0.04])
-                translate([left_panel_x+2,0,left_panel_split])
-                    cube([5,left_panel_y_span,8],center=true);
+
+        if (show_left_lower_access_panel) {
+            // A thin aluminum backing/overlap strip is riveted to the lower
+            // sheet and projects behind the upper sheet. It blocks smoke and
+            // light across the 4 mm reveal without becoming a frame member.
+            backing_x=left_frame_outer_x+1.5-left_lower_panel_pull;
+            color([0.38,0.40,0.41])
+                translate([backing_x,0,left_panel_split])
+                    cube([2,left_panel_y_span-42,32],center=true);
+            // Foam tape on the upper half of the removable backing strip.
+            color(gasket_color)
+                translate([left_frame_outer_x-0.25-left_lower_panel_pull,
+                           0,left_panel_split+9])
+                    cube([0.5,left_panel_y_span-42,14],center=true);
+            // Rivets retain the backing to the lower panel only.
+            color([0.70,0.71,0.72])
+                for (y=[-240,-120,0,120,240])
+                    translate([left_panel_x-2-left_lower_panel_pull,
+                               y,left_panel_split-9])
+                        rotate([0,90,0]) cylinder(d=5,h=2,$fn=24);
+        }
 
         // Right wall frame with a large electronics service opening.
         color(panel)
@@ -961,17 +1028,29 @@ module enclosure_side_panels() {
     }
     color(panel) if (show_panels && show_rear_panel) {
         difference() {
-            translate([0,frame_depth/2-10,frame_height/2])
-                cube([frame_width-45,3,frame_height-45],center=true);
+            translate([0,rear_skin_y,frame_height/2])
+                cube([frame_width-45,rear_panel_t,frame_height-45],center=true);
             if (show_exhaust_port)
-                translate([motion_center_x,frame_depth/2-10,exhaust_port_z])
+                translate([motion_center_x,rear_skin_y,exhaust_port_z])
                     rotate([90,0,0]) cylinder(d=exhaust_port_d,h=8,center=true);
             if (show_rear_tube_hatch)
-                translate([-25,frame_depth/2-10,optical_axis_z])
-                    cube([1050,8,120],center=true);
+                translate([rear_tube_hatch_cx,rear_skin_y,
+                           optical_axis_z])
+                    cube([rear_tube_hatch_w,8,120],center=true);
+            // IEC C14 fused/switched inlet: 48 x 31 mm body opening and two
+            // 3.6 mm flange screws on the advertised 1.57 in spacing.
+            translate([iec_inlet_x,rear_skin_y,iec_inlet_z])
+                rotate([90,0,0]) {
+                    cube([48,31,rear_panel_t+4],center=true);
+                    for (x=[-19.94,19.94])
+                        translate([x,0,0])
+                            cylinder(d=3.6,h=rear_panel_t+4,
+                                     center=true,$fn=24);
+                }
         }
     }
     if (show_panels && show_front_panel) {
+        front_panel_t=3;
         front_y=front_skin_y;
         panel_w=frame_width-45;
         panel_left=-panel_w/2;
@@ -983,25 +1062,45 @@ module enclosure_side_panels() {
         electronics_panel_w=panel_right-divider_right;
         electronics_panel_x=(divider_right+panel_right)/2;
 
-        lower_bottom_z=22;
+        // Extend the lower skins across the bottom 2020 centerline so their
+        // first M5 row can engage real roll-in T-nuts in that extrusion.
+        lower_bottom_z=10;
         lower_h=front_fascia_start_z-lower_bottom_z;
         upper_h=frame_height-20-front_fascia_start_z;
+        cutting_fastener_x=[panel_left+30,cutting_panel_x,divider_left-30];
+        electronics_fastener_x=[divider_right+30,panel_right-30];
 
             // Squared two-piece front: removable lower service panel and a
             // coplanar upper infill panel, both fixed to the straight frame.
             color([0.20,0.22,0.23]) {
-                translate([cutting_panel_x,front_y,lower_bottom_z+lower_h/2])
-                    cube([cutting_panel_w,3,lower_h],center=true);
+                difference() {
+                    translate([cutting_panel_x,front_y,
+                               lower_bottom_z+lower_h/2])
+                        cube([cutting_panel_w,front_panel_t,lower_h],center=true);
+                    for (x=cutting_fastener_x,
+                         z=[20,front_fascia_start_z])
+                        translate([x,front_y,z]) rotate([90,0,0])
+                            cylinder(d=5.6,h=front_panel_t+4,
+                                     center=true,$fn=28);
+                }
                 difference() {
                     translate([electronics_panel_x,front_y,
                                lower_bottom_z+lower_h/2])
-                        cube([electronics_panel_w,3,lower_h],center=true);
-                    translate([455,front_y,130]) rotate([90,0,0])
+                        cube([electronics_panel_w,front_panel_t,lower_h],center=true);
+                    translate([estop_x,front_y,upper_control_z])
+                        rotate([90,0,0])
                         cylinder(d=32,h=8,center=true);
-                    translate([520,front_y,130]) rotate([90,0,0])
+                    translate([pendant_x,front_y,pendant_z])
+                        rotate([90,0,0])
                         cylinder(d=26,h=8,center=true);
-                    translate([570,front_y,130]) rotate([90,0,0])
+                    translate([keyswitch_x,front_y,upper_control_z])
+                        rotate([90,0,0])
                         cylinder(d=20,h=8,center=true);
+                    for (x=electronics_fastener_x,
+                         z=[20,front_fascia_start_z])
+                        translate([x,front_y,z]) rotate([90,0,0])
+                            cylinder(d=5.6,h=front_panel_t+4,
+                                     center=true,$fn=28);
                 }
             }
             // Upper infill includes real cutouts for the electronics-bay
@@ -1010,46 +1109,75 @@ module enclosure_side_panels() {
                 difference() {
                     union() {
                         translate([cutting_panel_x,front_y,
-                                   front_fascia_start_z+upper_h/2])
-                            cube([cutting_panel_w,3,upper_h],center=true);
+                                   front_fascia_start_z+(upper_h-20)/2])
+                            cube([cutting_panel_w,front_panel_t,
+                                  upper_h-20],center=true);
                         translate([electronics_panel_x,front_y,
                                    front_fascia_start_z+upper_h/2])
-                            cube([electronics_panel_w,3,upper_h],center=true);
+                            cube([electronics_panel_w,front_panel_t,
+                                  upper_h],center=true);
                     }
                     // Galvanometer rectangular body opening.
                     translate([galvanometer_x,front_y,270])
                         cube([82,8,59],center=true);
+                    for (x=cutting_fastener_x,
+                         z=[front_fascia_start_z,upper_chassis_z-20])
+                        translate([x,front_y,z]) rotate([90,0,0])
+                            cylinder(d=5.6,h=front_panel_t+4,
+                                     center=true,$fn=28);
+                    for (x=electronics_fastener_x,
+                         z=[front_fascia_start_z,upper_chassis_z])
+                        translate([x,front_y,z]) rotate([90,0,0])
+                            cylinder(d=5.6,h=front_panel_t+4,
+                                     center=true,$fn=28);
                 }
             color([0.08,0.085,0.09])
                 translate([0,front_rail_y,front_fascia_start_z])
                     extrusion2020_x(panel_w);
-            color([0.08,0.085,0.09])
-                for (x=[-panel_w/2+28,panel_w/2-28],
-                     z=[55,front_fascia_start_z-28])
-                    translate([x,front_y-2,z])
-                        rotate([90,0,0]) cylinder(d=10,h=4,center=true);
+            // External printable clips and M5 hardware.  Their T-nuts sit in
+            // the front-facing slots of the real horizontal 2020 members;
+            // the orange preview color makes the complete load path visible.
+            for (x=cutting_fastener_x,
+                 z=[20,front_fascia_start_z,upper_chassis_z-20])
+                translate([x,front_y-front_panel_t/2,z])
+                    rotate([90,0,0])
+                        external_2020_panel_clip(
+                            panel_thickness=front_panel_t,
+                            show_hardware=true,
+                            body_color=panel_clip_color);
+            for (x=electronics_fastener_x,
+                 z=[20,front_fascia_start_z,upper_chassis_z])
+                translate([x,front_y-front_panel_t/2,z])
+                    rotate([90,0,0])
+                        external_2020_panel_clip(
+                            panel_thickness=front_panel_t,
+                            show_hardware=true,
+                            body_color=panel_clip_color);
     }
 }
 
 // Lift-off left-side enclosure panel. Coordinate inputs are global; the
-// sheet normal is X. Four quarter-turn fasteners engage the fixed perimeter,
-// and a formed U-handle projects outward from the cutting chamber.
+// sheet normal is X. Four printable bridge clips and M5 screws engage roll-in
+// T-nuts in the front/rear upright slots. A U-handle leaves with the panel.
 module left_access_panel(x,y,z,width,height,handle_z) {
+    panel_t=3;
+    yfast=[front_rail_y,rear_rail_y];
+    zfast=[z-height/2+22,z+height/2-22];
     color([0.56,0.58,0.59,0.82])
-        translate([x,y,z]) cube([3,width,height],center=true);
+        difference() {
+            translate([x,y,z]) cube([panel_t,width,height],center=true);
+            for (yf=yfast,zf=zfast)
+                translate([x,yf,zf]) rotate([0,90,0])
+                    cylinder(d=5.6,h=panel_t+4,center=true,$fn=28);
+        }
 
-    // Folded edge returns stiffen the removable sheet without leaving a
-    // structural bar across the side opening after panel removal.
-    color([0.38,0.40,0.41])
-        for (yedge=[y-width/2+7,y+width/2-7])
-            translate([x+3,yedge,z]) cube([8,12,height-12],center=true);
-
-    // Quarter-turn compression latches at the two end-frame uprights.
-    color([0.06,0.065,0.07])
-        for (yfast=[y-width/2+22,y+width/2-22],
-             zfast=[z-height/2+22,z+height/2-22])
-            translate([x-3,yfast,zfast]) rotate([0,90,0])
-                cylinder(d=10,h=5,center=true,$fn=32);
+    // Printed clips sit outside the sheet. Their screws pass through the
+    // real panel holes and terminate in T-nuts captured by the 2020 slots.
+    for (yf=yfast,zf=zfast)
+        translate([x-panel_t/2,yf,zf]) rotate([0,-90,0])
+            external_2020_panel_clip(panel_thickness=panel_t,
+                                     show_hardware=true,
+                                     body_color=panel_clip_color);
 
     // Horizontal pull handle; both feet and grip leave with the panel.
     color([0.10,0.105,0.11]) {
@@ -1063,7 +1191,12 @@ module left_access_panel(x,y,z,width,height,handle_z) {
 
 module electronics_service_panel(angle=electronics_service_panel_angle) {
     if (show_panels && show_side_panels) {
-        door_x=frame_width/2-6;
+        door_t=4;
+        right_frame_outer_x=frame_width/2;
+        // External Voron-style panel mount: in the closed position the
+        // sheet's inner face is tangent to the outer face of the right-side
+        // 2020, never embedded in its profile.
+        door_x=right_frame_outer_x+door_t/2;
         hinge_y=270;
         door_y=536;
         door_z=266;
@@ -1071,7 +1204,8 @@ module electronics_service_panel(angle=electronics_service_panel_angle) {
         // Rear vertical hinge; positive angle swings the door outward (+X).
         translate([door_x,hinge_y,170]) rotate([0,0,angle]) {
             color([0.56,0.58,0.59])
-                translate([0,-door_y/2,0]) cube([4,door_y,door_z],center=true);
+                translate([0,-door_y/2,0])
+                    cube([door_t,door_y,door_z],center=true);
             // Two printable cam latches pull the door against its perimeter
             // gasket. M5 mounting screws and M4 pivots remain metal hardware.
             for (z=[115,225])
@@ -1087,45 +1221,52 @@ module electronics_service_panel(angle=electronics_service_panel_angle) {
 
 module isolated_electronics_bulkhead() {
     if (show_panels && show_electronics_bulkhead) {
-        // Continuous sheet from base structure to the top-frame gasket plane,
-        // except for the sealed tube-tunnel penetration at the rear.
+        // The electronics divider ends at the full-width tube-compartment
+        // wall. Electronics occupy only the front-right portion of the box.
+        // Exact clear-opening limits: rear face of the front 2020 through to
+        // the front face of the perpendicular tube-cavity skin.  The edges
+        // meet those parts without either overlap or a smoke-leak gap.
+        divider_front=front_outer_y+20;
+        divider_rear=tube_cavity_front_y;
+        divider_bottom_z=30;
+        // Fit the sheet to the clear opening below the Z=330 rail. Ending at
+        // its underside (Z=320), rather than its upper face, prevents the
+        // sheet edge from appearing through the extrusion slot.
+        divider_top_z=upper_chassis_z-10;
+        divider_height=divider_top_z-divider_bottom_z;
+        divider_center_z=(divider_bottom_z+divider_top_z)/2;
         color([0.66,0.68,0.68])
-            difference() {
-                translate([electronics_divider_x,0,190])
-                    cube([3,frame_depth-42,320],center=true);
-                translate([electronics_divider_x,tube_shelf_y,optical_axis_z])
-                    cube([8,tube_tunnel_size_y-6,
-                           tube_tunnel_size_z-6],center=true);
-            }
+            translate([electronics_bulkhead_x,
+                       (divider_front+divider_rear)/2,divider_center_z])
+                cube([electronics_bulkhead_t,
+                      divider_rear-divider_front,divider_height],center=true);
 
-        // A removable, closed-end rear service alcove lets the tube terminal,
-        // water hoses and HV insulation occupy otherwise unused bay volume
-        // without sharing air or smoke with the electronics.
-        tunnel_len=tube_tunnel_end_x-electronics_divider_x;
+        // Full-width removable front skin and floor of the rear tube cavity.
+        // A small aperture at A1 passes only the reflected beam into the
+        // cutting chamber; the rest remains smoke-tight.
         color([0.66,0.68,0.68]) {
             difference() {
-                translate([electronics_divider_x+tunnel_len/2,
-                           tube_shelf_y,optical_axis_z])
-                    cube([tunnel_len,tube_tunnel_size_y,
-                           tube_tunnel_size_z],center=true);
-                translate([electronics_divider_x-2+(tunnel_len-5)/2,
-                           tube_shelf_y,optical_axis_z])
-                    cube([tunnel_len-5,tube_tunnel_size_y-8,
-                           tube_tunnel_size_z-8],center=true);
+                translate([0,tube_cavity_front_y+1.5,
+                           (tube_cavity_floor_z+tube_cavity_top_z)/2])
+                    cube([frame_width-42,3,
+                          tube_cavity_top_z-tube_cavity_floor_z],center=true);
+                translate([left_optics_x,tube_cavity_front_y+1.5,optical_axis_z])
+                    rotate([90,0,0]) cylinder(d=18,h=8,center=true,$fn=36);
             }
-            translate([tube_tunnel_end_x-1.5,tube_shelf_y,optical_axis_z])
-                cube([3,tube_tunnel_size_y,
-                       tube_tunnel_size_z],center=true);
+            translate([0,(tube_cavity_front_y+rear_outer_y-21)/2,
+                       tube_cavity_floor_z-1.5])
+                cube([frame_width-42,rear_outer_y-21-tube_cavity_front_y,
+                      3],center=true);
         }
 
         // Represent sealed cable glands/feedthroughs rather than open holes.
         color([0.07,0.075,0.08])
             for (y=[-120,-80,-40])
-                translate([electronics_divider_x,y,105]) rotate([0,90,0])
+                translate([electronics_bulkhead_x,y,105]) rotate([0,90,0])
                     cylinder(d=14,h=12,center=true);
         // Dedicated nearby gland for the right-side Y motor cable.
         color([0.07,0.075,0.08])
-            translate([electronics_divider_x,-frame_depth/2+44,135])
+            translate([electronics_bulkhead_x,-frame_depth/2+44,135])
                 rotate([0,90,0]) cylinder(d=14,h=12,center=true);
     }
 }
@@ -1134,7 +1275,7 @@ module cutting_chamber_exhaust() {
     if (show_panels && show_rear_panel && show_exhaust_port) {
         // Rear flange only; the blower belongs downstream/outside the machine.
         color([0.16,0.17,0.18])
-            translate([motion_center_x,frame_depth/2-14,exhaust_port_z])
+            translate([motion_center_x,rear_skin_y,exhaust_port_z])
                 rotate([90,0,0])
                     difference() {
                         cylinder(d=exhaust_port_d+12,h=18,center=true);
@@ -1143,20 +1284,38 @@ module cutting_chamber_exhaust() {
     }
 }
 
+module rear_mains_inlet() {
+    if (show_panels && show_rear_panel)
+        // Mounting face is flush with the outside of the rear skin; the
+        // molded body and spade terminals project inward into the isolated
+        // electronics bay.
+        translate([iec_inlet_x,rear_outer_y+rear_panel_t,iec_inlet_z])
+            rotate([90,0,0]) iec_c14_fused_inlet();
+}
+
 module rear_tube_service_hatch(angle=rear_tube_hatch_angle) {
     if (show_panels && show_rear_panel && show_rear_tube_hatch) {
-        hatch_cx=-25;
-        hatch_w=1068;
+        // Bound the service hatch by real structure.  Its left edge meets the
+        // inside face of the rear-left perimeter upright and its right edge
+        // stops at the tube-side face of the electronics-divider upright.
+        // The hatch therefore cannot hide behind or swing through either
+        // extrusion.
+        hatch_left=rear_tube_hatch_left;
+        hatch_right=rear_tube_hatch_right;
+        hatch_cx=rear_tube_hatch_cx;
+        hatch_w=rear_tube_hatch_w;
         hatch_h=136;
-        rear_y=frame_depth/2-7;
+        rear_y=rear_skin_y;
         hinge_z=optical_axis_z+68;
+        gasket_inset=4;
+        hardware_inset=120;
 
-        // Fixed closed-cell gasket surrounding the 1050 x 120 mm opening.
-        color([0.035,0.038,0.04]) {
+        // Fixed closed-cell gasket follows the shortened framed opening.
+        color(gasket_color) {
             for (z=[optical_axis_z-64,optical_axis_z+64])
                 translate([hatch_cx,rear_y-2,z])
-                    cube([1060,5,8],center=true);
-            for (x=[hatch_cx-529,hatch_cx+529])
+                    cube([hatch_w-2*gasket_inset,5,8],center=true);
+            for (x=[hatch_left+gasket_inset,hatch_right-gasket_inset])
                 translate([x,rear_y-2,optical_axis_z])
                     cube([8,5,128],center=true);
         }
@@ -1169,13 +1328,15 @@ module rear_tube_service_hatch(angle=rear_tube_hatch_angle) {
                     translate([0,0,-hatch_h/2])
                         cube([hatch_w,4,hatch_h],center=true);
                 color([0.07,0.075,0.08])
-                    for (x=[-350,350])
+                    for (x=[-hatch_w/2+hardware_inset,
+                             hatch_w/2-hardware_inset])
                         translate([x,4,-hatch_h+15])
                             cube([30,10,24],center=true);
             }
 
         // Three fixed hinges distribute the load across the long access door.
-        for (x=[hatch_cx-350,hatch_cx,hatch_cx+350])
+        for (x=[hatch_left+hardware_inset,hatch_cx,
+                hatch_right-hardware_inset])
             translate([x,rear_y,hinge_z])
                 enclosure_hinge_assembly(width=46,leaf_depth=20);
     }
@@ -1190,8 +1351,11 @@ module electronics_control_deck() {
         // Four-millimetre deck sheet sits directly on the Z=340 top faces of
         // the recessed electronics-bay 2020 frame.
         deck_z=upper_chassis_z+12;
-        deck_front=-frame_depth/2+30;
-        deck_rear=frame_depth/2-30;
+        // Cover the newly framed front edge.  The first fastener row lands
+        // over the centerline of the top-front 2020 instead of floating
+        // behind it.
+        deck_front=front_outer_y;
+        deck_rear=tube_cavity_front_y-10;
         deck_d=deck_rear-deck_front;
         deck_y=(deck_front+deck_rear)/2;
         lcd_x=deck_x;
@@ -1213,7 +1377,6 @@ module electronics_control_deck() {
         // on the top deck.
         operator_y=front_skin_y;
         operator_z=270;
-        lower_control_z=130;
 
         // Analog galvanometer-style tube current meter.
         color([0.055,0.06,0.065])
@@ -1231,34 +1394,34 @@ module electronics_control_deck() {
 
         // Emergency stop: yellow legend plate and red mushroom operator.
         color([0.95,0.73,0.05])
-            translate([455,operator_y-4,lower_control_z]) rotate([90,0,0])
+            translate([estop_x,operator_y-4,upper_control_z]) rotate([90,0,0])
                 cylinder(d=44,h=4,center=true);
         color([0.75,0.02,0.02]) {
-            translate([455,operator_y-11,lower_control_z]) rotate([90,0,0])
+            translate([estop_x,operator_y-11,upper_control_z]) rotate([90,0,0])
                 cylinder(d=29,h=15,center=true);
-            translate([455,operator_y-22,lower_control_z]) sphere(d=32);
+            translate([estop_x,operator_y-22,upper_control_z]) sphere(d=32);
         }
 
         // Keyed laser-enable selector.
         color([0.08,0.085,0.09])
-            translate([570,operator_y-5,lower_control_z]) rotate([90,0,0])
+            translate([keyswitch_x,operator_y-5,upper_control_z]) rotate([90,0,0])
                 cylinder(d=25,h=7,center=true);
         color([0.72,0.73,0.74]) {
-            translate([570,operator_y-13,lower_control_z]) rotate([90,0,0])
+            translate([keyswitch_x,operator_y-13,upper_control_z]) rotate([90,0,0])
                 cylinder(d=9,h=16,center=true);
-            translate([570,operator_y-23,lower_control_z])
+            translate([keyswitch_x,operator_y-23,upper_control_z])
                 cube([4,3,18],center=true);
         }
 
         // Locking pendant receptacle mounts through the lower front row.  Its
         // cable exits forward and can fall naturally below the controls.
         color([0.055,0.06,0.065])
-            translate([520,operator_y-6,lower_control_z]) rotate([90,0,0])
+            translate([pendant_x,operator_y-6,pendant_z]) rotate([90,0,0])
                 cylinder(d=31,h=10,center=true);
         color([0.72,0.73,0.74])
             for (a=[0:72:359])
-                translate([520+7*cos(a),operator_y-12,
-                           lower_control_z+7*sin(a)])
+                translate([pendant_x+7*cos(a),operator_y-12,
+                           pendant_z+7*sin(a)])
                     rotate([90,0,0]) cylinder(d=2.5,h=3,center=true);
 
         // Controller LCD and black protective bezel mount through the top of
@@ -1282,16 +1445,27 @@ module electronics_control_deck() {
 module framed_hinged_lid(angle=24) {
     // Lid covers only the cutting chamber. Its right edge terminates at the
     // sealed electronics bulkhead; the bay has a fixed control deck.
-    // The left lid boundary is the outer face of the fixed side 2020. Since
-    // the lid's side member is inset 10 mm from this boundary, its centerline
-    // now lands exactly on outer_left (-frame_width/2+20) below it.
-    lid_left=-frame_width/2+10;
-    lid_right=electronics_divider_x-3;
+    // The lid nests between the fixed left ledge and electronics-divider
+    // post.  These are OUTER-FACE datums for the lid side rails (and the
+    // centers of the silicone tubing in their outward-facing slots).
+    // Leave only 2 mm to the neighboring fixed extrusion faces so the 6 mm
+    // tubing projects into the gap and compresses when the lid closes.
+    //
+    // Do not inset these edges by another 10 mm: the side-rail loop below
+    // already places each 20 mm rail center 10 mm inside its outer face.
+    lid_side_seal_gap=2;
+    fixed_left_ledge_inner_x=(-frame_width/2+10);
+    divider_post_left_face=electronics_divider_x-10;
+    lid_left=fixed_left_ledge_inner_x+lid_side_seal_gap;
+    lid_right=divider_post_left_face-lid_side_seal_gap;
     lid_w=lid_right-lid_left;
     lid_cx=(lid_left+lid_right)/2;
-    hinge_y=frame_depth/2-12;
-    // Closed lid bottom lands directly on the upper perimeter top (Z=350).
-    hinge_z=frame_height-10;
+    // The rear lid member and hinges now land on the full-width tube-cavity
+    // mid brace. The laser tube remains beneath its own fixed service cap.
+    hinge_y=tube_cavity_front_y;
+    // Recess the complete lid 20 mm below its former datum.  Moving the
+    // hinge axis with it keeps the frame, glazing, and real hinges connected.
+    hinge_z=frame_height-30;
     // With the front lid member inset 10 mm from its boundary, this depth
     // puts its center on front_rail_y and its outer face on front_outer_y.
     lid_d=hinge_y-front_outer_y;
@@ -1306,6 +1480,32 @@ module framed_hinged_lid(angle=24) {
                 translate([local_x,-lid_d/2,10])
                     rotate([-90,0,0])
                         aluminum_extrusion_2020(length=lid_d,center=true,black=false);
+
+            // Round silicone cord is pressed into the moving lid extrusion
+            // slots.  The front run stays in the bottom slot and closes onto
+            // the recessed front ledge.  The left, rear, and right runs sit
+            // in the OUTWARD-facing lid slots, inside the surrounding pocket.
+            color(gasket_color) {
+                // Front: underside slot, bearing downward on the ledge.
+                translate([0,-lid_d+10,-0.5])
+                    rotate([0,90,0])
+                        cylinder(d=lid_gasket_diameter,
+                                 h=lid_w-20,center=true,$fn=24);
+
+                // Rear: outward/back-facing slot of the rear extrusion.
+                translate([0,0,10])
+                    rotate([0,90,0])
+                        cylinder(d=lid_gasket_diameter,
+                                 h=lid_w-40,center=true,$fn=24);
+
+                // Sides: their outward-facing slots; shorten them between
+                // the front and rear tubing runs to avoid corner overlap.
+                for (local_x=[-lid_w/2,lid_w/2])
+                    translate([local_x,-lid_d/2,10])
+                        rotate([90,0,0])
+                            cylinder(d=lid_gasket_diameter,
+                                     h=lid_d-40,center=true,$fn=24);
+            }
         }
 
         // Transparent laser-safe glazing representation.
@@ -1315,11 +1515,38 @@ module framed_hinged_lid(angle=24) {
                     cube([lid_w-38,lid_d-38,3],center=true);
     }
 
-    // Three rear hinges remain fixed to the enclosure hinge axis.
+    // Three hinges fasten directly to the tube-cavity mid brace.
     if (show_lid_frame)
         for (x=[lid_cx-lid_w/3,lid_cx,lid_cx+lid_w/3])
             translate([x,hinge_y,hinge_z])
                 enclosure_hinge_assembly(width=42,leaf_depth=22);
+}
+
+module tube_cavity_cap() {
+    if (show_panels && show_tube_cavity_cap) {
+        cap_front=tube_cavity_front_y;
+        cap_rear=rear_outer_y;
+        cap_depth=cap_rear-cap_front;
+        cap_y=(cap_front+cap_rear)/2;
+        cap_width=frame_width-20;
+        cap_z=tube_cavity_top_z+2;
+
+        // Four-millimetre lift-off sheet rests on the mid, rear, and side
+        // 2020 top faces. It is independent of both the cutting lid and the
+        // electronics control deck, so tube service does not expose either.
+        color([0.30,0.32,0.33])
+            translate([0,cap_y,cap_z])
+                cube([cap_width,cap_depth,4],center=true);
+
+        // Perimeter fasteners into T-nuts make the removable boundary clear.
+        color([0.72,0.73,0.74]) {
+            for (x=[-cap_width/2+15,cap_width/2-15],
+                 y=[cap_front+15,cap_rear-15])
+                translate([x,y,cap_z+2.5]) cylinder(d=7,h=3,center=true,$fn=28);
+            for (x=[-360,0,360], y=[cap_front+12,cap_rear-12])
+                translate([x,y,cap_z+2.5]) cylinder(d=7,h=3,center=true,$fn=28);
+        }
+    }
 }
 
 module machine_enclosure() {
@@ -1328,8 +1555,10 @@ module machine_enclosure() {
         electronics_service_panel();
         isolated_electronics_bulkhead();
         cutting_chamber_exhaust();
+        rear_mains_inlet();
         rear_tube_service_hatch();
         electronics_control_deck();
+        tube_cavity_cap();
         framed_hinged_lid(angle=lid_angle);
     }
 }

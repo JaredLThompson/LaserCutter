@@ -11,7 +11,7 @@ use <laser_parts.scad>
 $fn=48;
 
 /* [Fabrication output] */
-custom_part="mgn12h_2040_gantry_plate"; // [mgn12h_2040_gantry_plate,x_axis_nema17_2040_motor_mount,enclosure_hinge_fixed_leaf,enclosure_hinge_moving_leaf,enclosure_latch_base,enclosure_latch_lever,enclosure_latch_keeper]
+custom_part="mgn12h_2040_gantry_plate"; // [mgn12h_2040_gantry_plate,x_axis_nema17_2040_motor_mount,enclosure_hinge_fixed_leaf,enclosure_hinge_moving_leaf,enclosure_latch_base,enclosure_latch_lever,enclosure_latch_keeper,external_2020_panel_clip]
 part_quantity=1;                         // [1:1:4]
 part_spacing=90;                         // [70:5:150]
 show_hardware=false;
@@ -57,6 +57,8 @@ module selected_custom_part() {
         enclosure_cam_latch_lever();
     else if (custom_part=="enclosure_latch_keeper")
         translate([0,0,4]) enclosure_cam_latch_keeper();
+    else if (custom_part=="external_2020_panel_clip")
+        external_2020_panel_clip(show_hardware=show_hardware);
 }
 
 // Parts are laid flat on Z=0 and centered as a group for preview or nesting.

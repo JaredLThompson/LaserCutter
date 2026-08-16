@@ -12,12 +12,16 @@ The model is a work in progress. Dimensions for purchased optical hardware are c
 - `laser_head_set.scad` — A1/A2/A3/A4 optical hardware preview
 - `laser_tube.scad` — 800 mm, 50 W CO2 tube preview
 - `aluminum_extrusions.scad` — 2020 and 2040 extrusion previews
+- `extrusion_profile_preview.scad` — thin cross-section check for the dimensioned 2020/2040 profiles
 - `mgn12_linear_guides.scad` — MGN12 rails and MGN12H carriages
 - `stepper_motors.scad` — NEMA 17 motor preview
 - `stepper_drivers.scad` — external microstep driver preview
 - `laser_power_supply.scad` — 50 W laser power-supply preview
 - `air_assist_pump.scad` — Active Aqua AAPA45L air-pump preview
+- `air_control_solenoid.scad` — TAILONZ 2V025-08 24 VDC air-solenoid preview
 - `water_cooler.scad` — CW-3000 water-cooler preview
+- `preview/` — generated PNG inspection renders (not source files)
+- `render_previews.sh` — regenerates the standard preview set into `preview/`
 
 ## Opening the assembly
 
@@ -33,6 +37,12 @@ Useful Customizer controls include:
 
 The coordinate system is X = machine width, Y = front-to-back, and Z = up.
 
+## Generated previews
+
+Run `./render_previews.sh` to generate the standard PNG previews. All rendered
+images are written beneath `preview/`; generated files should not be placed in
+the repository root.
+
 ## Exporting printable or fabricated parts
 
 Open `laser_custom_parts.scad`, choose `custom_part`, and set `show_hardware=false`. Render with F6, then use **File → Export → Export as STL**.
@@ -43,6 +53,7 @@ Current selectable parts are:
 - X-axis NEMA 17 motor mount
 - enclosure hinge fixed and moving leaves
 - enclosure cam-latch base, lever, and keeper
+- external 2020 panel clip for the removable side skins
 
 `part_quantity` and `part_spacing` can arrange multiple copies for inspection or nesting.
 
@@ -53,6 +64,10 @@ Current selectable parts are:
 - one X-axis NEMA 17 with a closed GT2 belt loop clamped at A4
 - one Y-axis motor driving both sides through a cross-shaft to prevent racking
 - removable externally mounted enclosure panels
+- two independent left access panels, each retained by four printable clips and
+  M5 T-nuts on the front/rear 2020 uprights
+- a removable overlap/backing strip fixed to the lower left panel; removing both
+  panels leaves the full side opening clear for oversized workpieces
 - isolated electronics bay
 - framed rear tube pocket and service hatch
 - adjustable honeycomb cutting table
@@ -72,4 +87,3 @@ This repository is a mechanical design aid, not a certified machine plan. A CO2 
 - test the complete X belt path and clamp engagement
 - sweep X/Y travel for motor, optics, drag-chain, panel, and tube-pocket clearance
 - model the chain-synchronized Z lift and rear service bulkheads
-
