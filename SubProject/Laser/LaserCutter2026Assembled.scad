@@ -4,6 +4,7 @@
 use <Laser_Tube.scad>;
 use <LaserTubeMount.scad>;
 use <A1-RearMirrorMount.scad>;
+use <A1-MirrorPedestal.scad>;
 use <A2-FrontMirrorMount.scad>;
 use <focuser-assembly.scad>;
 use <MGN12H-Adapter-Plate.scad>;
@@ -19,6 +20,32 @@ use <kp08_pillow_block_bearing.scad>;
 use <gt2_gears.scad>;
 use <iec_fused_inlet.scad>;
 use <../../laser_parts.scad>;
+use <nema17_motor_plate.scad>;
+
+
+
+// ============================================================================
+// Interactive positioning
+// ============================================================================
+X_Pos = 0; // Laser head position; approximately 345 max
+Y_Pos = -43;   // Gantry position; approximately -43 min, +307 max
+y_axis_y_adjustment = 15; // Fine alignment: positive moves both Y rails and X gantry toward +Y
+Y_Stage_Pos = Y_Pos + y_axis_y_adjustment;
+y_rail_center_y = 130 + y_axis_y_adjustment;
+y_rail_support_length = 515;
+y_rail_support_front_y = -105; // Preserve the original front endpoint
+y_rail_support_center_y =
+    y_rail_support_front_y + y_rail_support_length/2;
+y_axis_drive_offset = 7; // Fine Y adjustment for the complete drive axle
+y_drive_axle_y = 365 + y_axis_drive_offset;
+gantry_z_adjustment = 60; // Raise/lower complete moving gantry for clearance checks
+y_idler_tension = 7.5;    // 0-15 mm; larger values increase Y-belt tension
+show_y_idler_tensioners = true;
+show_y_idler_support_rails = true;
+show_y_motor_belt = true;
+show_a1_mirror_pedestal = true;
+y_motor_z_adjustment = 0; // Fine belt tension; use ~0.25 mm for a 220 mm belt
+y_motor_pulley_axial_adjustment = 1.5;
 
 
 // ============================================================================
@@ -39,6 +66,9 @@ show_rear_service_connections = true;
 show_iec_power_inlet = true;
 show_air_assist_bulkhead = true;
 show_water_cooling_bulkheads = true;
+show_exhaust_shroud = true;
+exhaust_shroud_diameter = 152; // Nominal 6-inch cutting-chamber duct
+exhaust_shroud_depth = 30;
 show_right_panel = true;
 show_bottom_panel = true;
 show_tube_top_panel = true;
@@ -49,18 +79,19 @@ show_tube_access_door = true;
 show_electronics_access_door = true;
 show_electronics_mounting_panel = true;
 show_electronics_components = true;
+show_electronics_operator_controls = true;
 show_laser_power_supply = true;
 show_stepper_drivers = true;
 show_din_rails = true;
-show_left_lower_access_panel = true;
-show_left_upper_access_panel = true;
-show_left_panel_overlap_strip = true;
+show_left_lower_access_panel = false;
+show_left_upper_access_panel = false;
+show_left_panel_overlap_strip = false;
 
 leveling_foot_adjustment = 12; // Exposed 3/8-16 stud below socket: 0–22.86 mm
 outer_panel_thickness = 2;
-//outer_panel_color = [0.24, 0.28, 0.32]; // RGB values from 0 to 1
-outer_panel_color = [0.84, 0.88, 0.92]; // RGB values from 0 to 1
-outer_panel_opacity = 0.62;
+outer_panel_color = [0.24, 0.28, 0.32]; // RGB values from 0 to 1
+//outer_panel_color = [0.84, 0.88, 0.92]; // RGB values from 0 to 1
+outer_panel_opacity = 0.32;
 
 // Opaque sheet-metal floor (separate from the acrylic enclosure panels)
 bottom_panel_thickness = 25.4 / 16; // 1/16 inch = 1.5875 mm
@@ -69,24 +100,31 @@ bottom_panel_opacity = 1.0;
 
 // Lid attributes
 show_lid = true;
+show_lid_panels = false; // Acrylic only; the lid extrusion frame remains visible
+show_lid_handle = true;
+lid_handle_width = 180;
+lid_handle_projection = 34;
 lid_panel_color = [0.35, 0.35, 0.35]; // RGB values from 0 to 1
 lid_panel_opacity = 0.10;
 lid_angle = 90;
 
+
+//Tube Access
 tube_access_door_angle = 90;       // 0=closed; positive opens outward/upward
 electronics_door_angle = 30;       // 0=closed; positive opens outward/right
 left_lower_panel_pull = 0;        // Pull outward in -X; hide to remove completely
 left_upper_panel_pull = 0;
 tube_floor_panel_drop = 0;        // Positive value lowers floor for inspection
 
-show_honeycomb=true;
+show_honeycomb=false;
 
 
 // ============================================================================
 // Machine dimensions
 // ============================================================================
+cabinet_y_extension = 15;
 frame_width = 1219.2; // One full 48-inch 2020 extrusion
-frame_depth = 650;
+frame_depth = 650 + cabinet_y_extension;
 frame_height = 360;
 
 // Shared chassis datums. Panel dimensions are derived from these structural
@@ -96,28 +134,68 @@ left_frame_x = -510;
 electronics_divider_x = 510;
 right_frame_x = left_frame_x + frame_width - extrusion_profile;
 front_frame_y = -115;
-rear_frame_y = 500;
+rear_frame_y = 500 + cabinet_y_extension;
+gantry_rear_y = 400 + cabinet_y_extension;
 lower_frame_z = -62;
 upper_frame_z = frame_height - 82;
 
-lid_height = 100;
+lid_height = 90;
 lid_width = 1040;
-lid_depth = 495;
+lid_depth = 495 + cabinet_y_extension;
 
-// ============================================================================
-// Interactive positioning
-// ============================================================================
-X_Pos = 345; // Laser head position; approximately 345 max
-Y_Pos = 0;   // Gantry position; approximately -45 min
-gantry_z_adjustment = 60; // Raise/lower complete moving gantry for clearance checks
+
 
 // ============================================================================
 // Assembly offsets
 // ============================================================================
-laser_tube_y = 450;
+laser_tube_y = 450 + cabinet_y_extension;
 laser_offset = 70 + 88;
+a1_mount_x = -465;
+a1_mount_y = laser_tube_y + 5;
+a1_base_lift = 50;
+a1_base_z = -52 + a1_base_lift;
 y_belt_offset = 429;
+y_idler_mount_y = front_frame_y + 10;
 e_panel_thickness = 4;
+
+// Y-drive reduction-belt datums.  gt2_toothed_pulley(center=true) centers its
+// complete body including the asymmetric collar, so the toothed belt plane is
+// offset from the module origin.  The 60T and motor pulley tooth faces are
+// aligned here at X=21.5 rather than at their shaft/collar centers.
+y_drive_belt_plane_x = 21.5;
+y_drive_pulley_center = [y_drive_belt_plane_x,
+                         y_drive_axle_y,
+                         89 + gantry_z_adjustment];
+// Base Z=20 preserves the current motor position when gantry_z_adjustment=60.
+// Motor and drive axle now rise/fall together, keeping belt length constant.
+y_motor_mount_origin = [10,
+                        gantry_rear_y-32,
+                        20 + gantry_z_adjustment + y_motor_z_adjustment];
+y_motor_pulley_center = [y_drive_belt_plane_x,
+                         y_motor_mount_origin[1],
+                         y_motor_mount_origin[2]];
+y_drive_pulley_teeth = 60;
+y_motor_pulley_teeth = 20;
+y_motor_belt_pitch = 2;
+y_drive_pitch_diameter = y_drive_pulley_teeth * y_motor_belt_pitch / PI;
+y_motor_pitch_diameter = y_motor_pulley_teeth * y_motor_belt_pitch / PI;
+y_motor_pulley_distance = norm(y_drive_pulley_center-y_motor_pulley_center);
+y_motor_belt_length =
+    2*y_motor_pulley_distance
+    + PI/2*(y_drive_pitch_diameter+y_motor_pitch_diameter)
+    + pow(y_drive_pitch_diameter-y_motor_pitch_diameter, 2)
+      /(4*y_motor_pulley_distance);
+y_motor_nearest_belt_teeth = round(y_motor_belt_length/y_motor_belt_pitch);
+y_motor_nearest_belt_length =
+    y_motor_nearest_belt_teeth*y_motor_belt_pitch;
+
+echo(str("Approximate Y motor GT2 belt pitch length: ",
+         y_motor_belt_length,
+         " mm; nearest pitch length is ",
+         y_motor_nearest_belt_length,
+         " mm / ",
+         y_motor_nearest_belt_teeth,
+         " teeth"));
 
 // The original assembly was modeled with the underside of the bottom 2020
 // frame members at Z=-72. Apply one datum correction to the complete machine
@@ -142,45 +220,75 @@ translate([280, laser_tube_y, 74]) tubeMountAssembled(z_offset=14);
 // A1 Fixed Mirror Mount (Turned laser=false so it doesn't draw static lines!)
 // Counteract the outer motion-plane translation so the mounting base remains
 // fixed to the chassis; only the adjustable upright follows the optical axis.
-translate([0, 0, -gantry_z_adjustment])
-  translate([-465, laser_tube_y + 5, -52])
+translate([0, 0, -gantry_z_adjustment + a1_base_lift])
+  translate([a1_mount_x, a1_mount_y, -52])
     AssembledRearMirrorMount(
-        zOffset=52 + gantry_z_adjustment,
+        zOffset=52 + gantry_z_adjustment-a1_base_lift,
         laser=false);
 
 
-// Y Axis Idlers
-//translate([410,-85, 74])y_axis_idler_assembly();
+// Y-axis idlers. Their mounting datum and belt axis follow the complete
+// gantry-height adjustment together with the Y rails and drive hardware.
+if (show_y_idler_tensioners)
+    translate([y_belt_offset, y_idler_mount_y, 64])
+        y_axis_idler_tensioner_assembly(
+            tension=y_idler_tension,
+            mirrored=false);
 color("green") 
-        gt2_belt(p1=[y_belt_offset, -85, 89], p2=[y_belt_offset, 365, 89], width=6);
+        gt2_belt(
+            p1=[y_belt_offset, y_idler_mount_y + 30 - y_idler_tension, 89],
+            p2=[y_belt_offset, y_drive_axle_y, 89],
+            width=6);
 
-//translate([-410,-85, 74])y_axis_idler_assembly();
+if (show_y_idler_tensioners)
+    translate([-y_belt_offset, y_idler_mount_y, 64])
+        y_axis_idler_tensioner_assembly(
+            tension=y_idler_tension,
+            mirrored=true);
 color("green") 
-        gt2_belt(p1=[-y_belt_offset, -85, 89], p2=[-y_belt_offset, 365, 89], width=6);
+        gt2_belt(
+            p1=[-y_belt_offset, y_idler_mount_y + 30 - y_idler_tension, 89],
+            p2=[-y_belt_offset, y_drive_axle_y, 89],
+            width=6);
 
 } // Fixed optics, Y belts, and tube move with the complete gantry plane
+
+// Fixed structural support for the A1 base.  The optical upright continues to
+// follow gantry_z_adjustment, but this pedestal remains tied to the chassis.
+if (show_a1_mirror_pedestal)
+    translate([a1_mount_x,
+               a1_mount_y,
+               lower_frame_z + extrusion_profile/2])
+        a1_mirror_pedestal(
+            height=a1_base_z
+                   - (lower_frame_z + extrusion_profile/2));
         
         
 
-  
 // Y axis drive
 translate([0, 0, gantry_z_adjustment]) {
 
-translate([410,365,74])
+translate([410,y_drive_axle_y,74])
   kp08_pillow_block_assembly();
 
-translate([-410,365,74])
+translate([-410,y_drive_axle_y,74])
   kp08_pillow_block_assembly();
   
 // Y Drive Axle
-translate([0,365,89])
+translate([0,y_drive_axle_y,89])
   rotate([0,90,0])cylinder(d=8,h=870, center=true);
   
-translate([425,365,89])
+// Y drive gear
+translate([18,y_drive_axle_y,89])
+  rotate([0,-90,0])
+    gt2_toothed_pulley(teeth=60, bore=8, width=9, center=true, m_shaft_lock_dia=25);
+
+// Y Pulleys
+translate([425,y_drive_axle_y,89])
   rotate([0,-90,0]) 
     gt2_toothed_pulley(teeth=20, bore=8, width=9, center=true);
 
-translate([-425,365,89])
+translate([-425,y_drive_axle_y,89])
   rotate([0,90,0]) 
     gt2_toothed_pulley(teeth=20, bore=8, width=9, center=true);
 
@@ -205,22 +313,20 @@ if (show_laser_beams) {
         // --- BEAM Segment 2: A1 Fixed Mirror to Moving A2 Gantry Mirror ---
         translate([-465, laser_tube_y, 158]) 
             rotate([90, 0, 0]) 
-                cylinder(d=2, h=(laser_tube_y - (Y_Pos - 35)));
+                cylinder(d=2, h=(laser_tube_y - (Y_Stage_Pos - 35)));
 
         // --- BEAM Segment 3: Moving A2 Mirror to Sliding A3 Laser Focuser Head ---
-        translate([-465, Y_Pos-35, 158])
+        translate([-465, Y_Stage_Pos-35, 158])
             rotate([0, 90, 0]) 
                 cylinder(d=2, h=(X_Pos - (-465)));
                 
         // --- BEAM Segment 4: Downward Cut Path (Nozzle Tip to Honeycomb Bed) ---
         // Pushes straight down to meet the new metal honeycomb mesh grid top line
-        translate([X_Pos, Y_Pos - 35, 158])
+        translate([X_Pos, Y_Stage_Pos - 35, 158])
             rotate([180, 0, 0])
                 cylinder(d=1, h=190 + gantry_z_adjustment);
     }
 }
-
-
 // =======================================================================
 // LASER CUTTER HONEYCOMB WORK BED MATRIX
 // =======================================================================
@@ -229,16 +335,18 @@ if (show_honeycomb)
   translate([0, 130, -32])
     laser_honeycomb_bed(w=750, d=400, h=12);
 
-    
+
 if (show_lid)
-    translate([0, 380, frame_height - 82]) lid_assembly(lid_angle);
+    translate([0, gantry_rear_y - extrusion_profile,
+               frame_height - 82])
+        lid_assembly(lid_angle);
 
  
 
 // =======================================================================
 // DYNAMIC Y-AXIS STAGE (Moves entire crossbar assembly along Y_Pos)
 // =======================================================================
-translate([0, Y_Pos, gantry_z_adjustment]) {
+translate([0, Y_Stage_Pos, gantry_z_adjustment]) {
 
     // A2 Front Left Flying Mirror Mount
     translate([-465 + 5, 20, 114]) 
@@ -291,32 +399,65 @@ translate([0, Y_Pos, gantry_z_adjustment]) {
 // =======================================================================
 translate([0, 0, gantry_z_adjustment]) {
 
-translate([410, 130, 74]) mgn12h_with_rail(rail_length = 400, carriage_pos = Y_Pos - 130, include_stops = false);
-translate([410, 145, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=500, center=true, black=true);
+// Y Right
+translate([410, y_rail_center_y, 74])
+    mgn12h_with_rail(
+        rail_length=400,
+        carriage_pos=Y_Stage_Pos-y_rail_center_y,
+        include_stops=false);
+translate([410, y_rail_support_center_y, 64])
+    rotate([0, 90, 90])
+        aluminum_extrusion_2020(
+            length=y_rail_support_length,
+            center=true,
+            black=true);
 
-translate([-410, 130, 74]) mgn12h_with_rail(rail_length = 400, carriage_pos = Y_Pos - 130, include_stops = false);
-translate([-410, 145, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=500, center=true, black=true);
+// Y Left
+translate([-410, y_rail_center_y, 74])
+    mgn12h_with_rail(
+        rail_length=400,
+        carriage_pos=Y_Stage_Pos-y_rail_center_y,
+        include_stops=false);
+translate([-410, y_rail_support_center_y, 64])
+    rotate([0, 90, 90])
+        aluminum_extrusion_2020(
+            length=y_rail_support_length,
+            center=true,
+            black=true);
 
 
 // Front of Gantry
 translate([0, -115, 64]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true, black=true);
+
+// Dedicated longitudinal supports for the two Y-belt tensioners.  Each rail
+// lies directly below the tensioner's 56 mm base and crosses the existing
+// front member, allowing both M5 saddle fasteners to engage a 2020 T-slot.
+if (show_y_idler_support_rails)
+    for (idler_x=[-y_belt_offset, y_belt_offset])
+        translate([idler_x, y_idler_mount_y + 8, 64])
+            rotate([0, 90, 90])
+                aluminum_extrusion_2020(
+                    length=56,
+                    center=true,
+                    black=true);
 // Back of Gantry
-translate([0, 400, 64]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true, black=true);
+translate([0, gantry_rear_y, 64]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true, black=true);
 // back of CO2 Tube
-translate([-500, 500, 64]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=frame_width-40);
+translate([-500, rear_frame_y, 64]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=frame_width-40);
+
 
 //Right side of gantry
-translate([510, 192+10, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-60, center=true);
+translate([510, 202 + cabinet_y_extension/2, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=575 + cabinet_y_extension, center=true);
 //Left side of gantry
-translate([-510, 192, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-40, center=true, black=true);
+translate([-510, 192 + cabinet_y_extension/2, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=595 + cabinet_y_extension, center=true, black=true);
 
 
 // Cross supports
-translate([303, 450, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
-translate([257, 450, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
+translate([303, laser_tube_y, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
+translate([257, laser_tube_y, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
 // Cross supports
-translate([-303, 450, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
-translate([-257, 450, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
+translate([-303, laser_tube_y, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
+translate([-257, laser_tube_y, 64]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=80, center=true, black=true);
 
 } // Y rails, their 2020 supports, and the tube-support deck
 
@@ -332,7 +473,7 @@ translate([510, -105, -52])rotate([0,0,90])aluminum_extrusion_2040(length=frame_
 // left front
 translate([-510, -115, -52])aluminum_extrusion_2020(length=frame_height-20);
 // right back 
-translate([689.2, 500, -52])aluminum_extrusion_2020(length=frame_height-20);
+translate([689.2, rear_frame_y, -52])aluminum_extrusion_2020(length=frame_height-20);
 
 // Split rear posts terminate at the moving gantry rail. Their outside ends
 // stay fixed while the lower segment grows and the upper segment shrinks.
@@ -342,55 +483,87 @@ gantry_rail_top_z = 74 + gantry_z_adjustment;
 rear_post_top_z = 269;
 electronics_post_top_z = 249;
 
+
+// Back bottom of gantry
+translate([0, gantry_rear_y, -62]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true, black=true);
+
+// Y Motor Support
+translate([0, gantry_rear_y, split_post_bottom_z])
+  rotate([0,0,90])
+    aluminum_extrusion_2020(length=gantry_rail_bottom_z-split_post_bottom_z);
+
+// Y Motor Assembly()
+translate(y_motor_mount_origin)
+  rotate([180,-90,0])
+    nema_17_mount_plate_assembly(
+        pulley_axial_adjustment=y_motor_pulley_axial_adjustment);
+
+// 60T axle pulley to 20T motor pulley reduction belt.  Its upper endpoint
+// follows gantry_z_adjustment while the chassis-mounted motor remains fixed.
+if (show_y_motor_belt)
+    color("DimGray", 0.9)
+        gt2_belt(
+            p1=y_motor_pulley_center,
+            p2=y_drive_pulley_center,
+            r1=y_motor_pitch_diameter/2,
+            r2=y_drive_pitch_diameter/2,
+            width=6);
+
 // Right back gantry post
-translate([510, 500, gantry_rail_top_z])
+translate([510, rear_frame_y, gantry_rail_top_z])
   rotate([0,0,90])
     aluminum_extrusion_2020(length=rear_post_top_z-gantry_rail_top_z);
-translate([510, 500, split_post_bottom_z])
+translate([510, rear_frame_y, split_post_bottom_z])
   rotate([0,0,90])
     aluminum_extrusion_2020(length=gantry_rail_bottom_z-split_post_bottom_z);
 
 //Rails to mount electronics panel
 color("orange")
-  translate([510, 480, gantry_rail_top_z])
+  translate([510, rear_frame_y-20, gantry_rail_top_z])
     rotate([0,0,90])
       aluminum_extrusion_2020(
           length=electronics_post_top_z-gantry_rail_top_z);
-          
-color("orange")
-  translate([510, 410, gantry_rail_top_z])
+
+//bulkhead right
+  translate([510, gantry_rear_y, gantry_rail_top_z])
     rotate([0,0,90])
       aluminum_extrusion_2020(
           length=electronics_post_top_z-gantry_rail_top_z);
-          
-color("orange")
-  translate([510, 480, split_post_bottom_z])
+
+//bulkhead left
+  translate([-510, gantry_rear_y, gantry_rail_top_z])
+    rotate([0,0,90])
+      aluminum_extrusion_2020(
+          length=electronics_post_top_z-gantry_rail_top_z+20);
+
+//color("orange")
+  translate([510, rear_frame_y-20, split_post_bottom_z])
     rotate([0,0,90])
       aluminum_extrusion_2020(
           length=gantry_rail_bottom_z-split_post_bottom_z);
-color("orange")translate([510, 192, -42]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-80, center=true);
+//color("orange")translate([510, 192 + cabinet_y_extension/2, -42]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=555 + cabinet_y_extension, center=true);
 
 
 // left back
-translate([-510, 500, -52])aluminum_extrusion_2020(length=frame_height-20);
+translate([-510, rear_frame_y, -52])aluminum_extrusion_2020(length=frame_height-20);
 
 
 
 //Bottom front
 translate([-520, -115, -62]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=frame_width);
 //Bottom left
-translate([-510, 192, -62]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-40, center=true);
+translate([-510, 192 + cabinet_y_extension/2, -62]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=595 + cabinet_y_extension, center=true);
 //Bottom back
-translate([-520, 500, -62]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=frame_width);
+translate([-520, rear_frame_y, -62]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=frame_width);
 //Bottom right of gantry
-translate([510, 192, -62]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-40, center=true);
+translate([510, 192 + cabinet_y_extension/2, -62]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=595 + cabinet_y_extension, center=true);
 //Bottom right
-translate([689.2, 192, -62]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-40, center=true);
+translate([689.2, 192 + cabinet_y_extension/2, -62]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=595 + cabinet_y_extension, center=true);
 
 
 // A1 mirror supports
-translate([-465+20, 192, -62]) rotate([90, 0, 0]) aluminum_extrusion_2020(length=635-40, center=true, black=true);
-translate([-465-20, 192, -62]) rotate([90, 0, 0]) aluminum_extrusion_2020(length=635-40, center=true, black=true);
+//translate([-465+20, 192, -62]) rotate([90, 0, 0]) aluminum_extrusion_2020(length=635-40, center=true, black=true);
+//translate([-465-20, 192, -62]) rotate([90, 0, 0]) aluminum_extrusion_2020(length=635-40, center=true, black=true);
 
 
 if (show_leveling_feet)
@@ -401,20 +574,20 @@ if (show_leveling_feet)
 //top front main
 color("silver")translate([0, -115, frame_height-82-20-lid_height]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true, black=true);
 //top back
-color("silver")translate([-520, 500, frame_height-82]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=frame_width, black=true);
+color("silver")translate([-520, rear_frame_y, frame_height-82]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=frame_width, black=true);
 
 //top Right side of gantry
-color("silver")translate([510, 192+10, frame_height-82-10]) rotate([0, 90, 90]) aluminum_extrusion_2040(length=635-60, center=true, black=true);
+color("silver")translate([510, 202 + cabinet_y_extension/2, frame_height-82-10]) rotate([0, 90, 90]) aluminum_extrusion_2040(length=575 + cabinet_y_extension, center=true, black=true);
 //top Left side 
-color("silver")translate([-510, 192, frame_height-82]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-40, center=true, black=true);
+color("silver")translate([-510, 192 + cabinet_y_extension/2, frame_height-82]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=595 + cabinet_y_extension, center=true, black=true);
 //Bottom right
-color("silver")translate([689.2, 192, frame_height-82]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=635-40, center=true, black=true);
+color("silver")translate([689.2, 192 + cabinet_y_extension/2, frame_height-82]) rotate([0, 90, 90]) aluminum_extrusion_2020(length=595 + cabinet_y_extension, center=true, black=true);
 
 //top right electronics bay
 color("silver")translate([600, -115, frame_height-82]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=160, center=true, black=true);
 
 //Lid-mating peice
-translate([0, 400, frame_height-82]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true);
+translate([0, gantry_rear_y, frame_height-82]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true);
 
 
 if (show_all_panels && show_electronics_mounting_panel)
@@ -544,6 +717,14 @@ module outer_panels_assembly() {
     electronics_panel_width = panel_right_x - electronics_divider_x;
     electronics_panel_center_x =
         (electronics_divider_x + panel_right_x) / 2;
+    operator_panel_x = electronics_panel_center_x;
+    galvanometer_x = operator_panel_x;
+    galvanometer_z = 220;
+    estop_x = electronics_divider_x + 45;
+    key_switch_x = panel_right_x - 45;
+    operator_control_z = 110;
+    pendant_connector_x = operator_panel_x;
+    pendant_connector_z = 45;
 
     // The cutting panel stops at the optical/tube shelf datum, leaving the
     // upper service opening clear. The electronics panel remains full height.
@@ -565,7 +746,7 @@ module outer_panels_assembly() {
 
     // Sealed rear laser-tube compartment. A1 remains inside this bay; only its
     // outgoing beam passes through the front bulkhead toward the moving A2.
-    tube_bay_front_y = 400;
+    tube_bay_front_y = gantry_rear_y;
     tube_top_width = electronics_divider_x - panel_left_x;
     tube_top_depth = rear_frame_y - tube_bay_front_y;
     tube_panel_center_x = (panel_left_x + electronics_divider_x) / 2;
@@ -588,23 +769,34 @@ module outer_panels_assembly() {
         electronics_top_right_x - electronics_top_left_x;
     electronics_top_center_x =
         (electronics_top_left_x + electronics_top_right_x) / 2;
+    electronics_top_panel_z = upper_frame_z + extrusion_profile / 2
+                              + outer_panel_thickness / 2;
+    ruida_panel_x = electronics_top_center_x;
+    ruida_panel_y = front_frame_y + 70;
 
     if (show_electronics_top_panel)
         color(panel_color)
-            translate([electronics_top_center_x,
-                       (front_frame_y + rear_frame_y) / 2,
-                       upper_frame_z + extrusion_profile / 2
-                       + outer_panel_thickness / 2])
-                cube([electronics_top_width,
-                      rear_frame_y - front_frame_y,
-                      outer_panel_thickness], center=true);
+            difference() {
+                translate([electronics_top_center_x,
+                           (front_frame_y + rear_frame_y) / 2,
+                           electronics_top_panel_z])
+                    cube([electronics_top_width,
+                          rear_frame_y - front_frame_y,
+                          outer_panel_thickness], center=true);
+                if (show_electronics_operator_controls)
+                    translate([ruida_panel_x, ruida_panel_y,
+                               electronics_top_panel_z])
+                        cube([106, 66, outer_panel_thickness + 4],
+                             center=true);
+            }
 
     // Floor sits directly beneath the tube-support cross rails. The round
     // clearance surrounds A1's fixed upright without opening the beam chamber
     // to the cutting area.
     tube_floor_edge_clearance = 10;
-    tube_floor_left_x = panel_left_x + extrusion_profile / 2
-                        + tube_floor_edge_clearance;
+    // Reach the left frame extrusion centerline so the tube floor closes the
+    // same side gap as the front bulkhead.
+    tube_floor_left_x = panel_left_x;
     // The electronics divider is a rotated 2040 with 40 mm across X.
     tube_floor_right_x = electronics_divider_x
                          - tube_floor_edge_clearance;
@@ -620,6 +812,15 @@ module outer_panels_assembly() {
                    - tube_floor_mount_clearance
                    - tube_panel_thickness / 2;
     tube_floor_installed_z = tube_floor_z - tube_floor_panel_drop + 10;
+    // Center the exhaust between the lower rear extrusion and the underside
+    // of the tube floor. This keeps it in the cutting chamber as gantry height
+    // changes, rather than venting the isolated tube cavity.
+    exhaust_lower_limit_z = lower_frame_z + extrusion_profile / 2;
+    exhaust_upper_limit_z =
+        tube_floor_installed_z - tube_panel_thickness / 2;
+    exhaust_shroud_x = 0;
+    exhaust_shroud_z =
+        (exhaust_lower_limit_z + exhaust_upper_limit_z) / 2;
     if (show_tube_floor_panel)
         color(bottom_color)
             difference() {
@@ -633,25 +834,41 @@ module outer_panels_assembly() {
                              center=true, $fn=48);
             }
 
-    // Front smoke/light bulkhead mounts on the tube side of the Y=400 rail.
+    // Front smoke/light bulkhead mounts on the cutting-area side of the rear
+    // gantry rail, leaving the tube bay side of the extrusion unobstructed.
     // A short pass-through sleeve provides a controlled aperture for the beam
     // from A1 to A2 and follows the selected optical-plane elevation.
-    tube_bulkhead_bottom_z = 74 + gantry_z_adjustment;
-    tube_bulkhead_top_z = upper_frame_z - extrusion_profile / 2;
+    // Add 20 mm of mounting height, then raise the envelope 10 mm so it
+    // overlaps both the lower and upper extrusion faces for fastening.
+    tube_bulkhead_mount_overlap = extrusion_profile;
+    tube_bulkhead_z_offset = 10;
+    tube_bulkhead_bottom_z = 74 + gantry_z_adjustment
+                             - tube_bulkhead_mount_overlap
+                             + tube_bulkhead_z_offset;
+    tube_bulkhead_top_z = upper_frame_z - extrusion_profile / 2
+                          + tube_bulkhead_z_offset;
     tube_bulkhead_height = tube_bulkhead_top_z - tube_bulkhead_bottom_z;
     tube_bulkhead_center_z =
         (tube_bulkhead_bottom_z + tube_bulkhead_top_z) / 2;
     beam_aperture_z = laser_offset + gantry_z_adjustment;
     beam_aperture_d = 18;
-    tube_bulkhead_y = tube_bay_front_y + extrusion_profile / 2
-                      + tube_panel_thickness / 2;
+    // Unlike the horizontal tube floor, the vertical bulkhead needs no edge
+    // clearance. Extend it to the left frame extrusion centerline to seal the
+    // gap while retaining the established electronics-divider-side edge.
+    tube_bulkhead_left_x = panel_left_x;
+    tube_bulkhead_right_x = tube_floor_right_x;
+    tube_bulkhead_width = tube_bulkhead_right_x - tube_bulkhead_left_x;
+    tube_bulkhead_center_x =
+        (tube_bulkhead_left_x + tube_bulkhead_right_x) / 2;
+    tube_bulkhead_y = tube_bay_front_y - extrusion_profile / 2
+                      - tube_panel_thickness / 2;
 
     if (show_tube_front_bulkhead) {
         color(bottom_color)
             difference() {
-                translate([tube_floor_center_x, tube_bulkhead_y,
+                translate([tube_bulkhead_center_x, tube_bulkhead_y,
                            tube_bulkhead_center_z])
-                    cube([tube_floor_width, tube_panel_thickness,
+                    cube([tube_bulkhead_width, tube_panel_thickness,
                           tube_bulkhead_height], center=true);
                 translate([-465, tube_bulkhead_y, beam_aperture_z])
                     rotate([90, 0, 0])
@@ -680,10 +897,111 @@ module outer_panels_assembly() {
 
     if (show_front_panel && show_front_electronics_panel)
         color(panel_color)
-            translate([electronics_panel_center_x, panel_front_y,
-                       panel_center_z])
-                cube([electronics_panel_width, outer_panel_thickness,
-                      panel_height], center=true);
+            difference() {
+                translate([electronics_panel_center_x, panel_front_y,
+                           panel_center_z])
+                    cube([electronics_panel_width, outer_panel_thickness,
+                          panel_height], center=true);
+                if (show_electronics_operator_controls) {
+                    translate([galvanometer_x, panel_front_y,
+                               galvanometer_z])
+                        cube([82, outer_panel_thickness + 4, 59],
+                             center=true);
+                    translate([estop_x, panel_front_y, operator_control_z])
+                        rotate([90, 0, 0])
+                            cylinder(d=32,
+                                     h=outer_panel_thickness + 4,
+                                     center=true, $fn=48);
+                    translate([key_switch_x, panel_front_y,
+                               operator_control_z])
+                        rotate([90, 0, 0])
+                            cylinder(d=20,
+                                     h=outer_panel_thickness + 4,
+                                     center=true, $fn=40);
+                    translate([pendant_connector_x, panel_front_y,
+                               pendant_connector_z])
+                        rotate([90, 0, 0])
+                            cylinder(d=26,
+                                     h=outer_panel_thickness + 4,
+                                     center=true, $fn=40);
+                }
+            }
+
+    if (show_electronics_operator_controls) {
+        operator_face_y = panel_front_y - outer_panel_thickness / 2;
+
+        // Analog galvanometer-style laser tube current meter.
+        color([0.055, 0.06, 0.065])
+            translate([galvanometer_x, operator_face_y - 5,
+                       galvanometer_z])
+                cube([88, 10, 65], center=true);
+        color([0.92, 0.92, 0.88])
+            translate([galvanometer_x, operator_face_y - 11,
+                       galvanometer_z])
+                cube([78, 2, 55], center=true);
+        color([0.08, 0.08, 0.08]) {
+            translate([galvanometer_x, operator_face_y - 12,
+                       galvanometer_z - 7])
+                rotate([0, -25, 0]) cube([2, 1, 34], center=true);
+            translate([galvanometer_x, operator_face_y - 13,
+                       galvanometer_z - 21])
+                rotate([90, 0, 0])
+                    cylinder(d=6, h=2, center=true, $fn=28);
+        }
+
+        // Emergency stop with yellow legend plate and mushroom operator.
+        color([0.95, 0.73, 0.05])
+            translate([estop_x, operator_face_y - 2, operator_control_z])
+                rotate([90, 0, 0])
+                    cylinder(d=44, h=4, center=true, $fn=48);
+        color([0.75, 0.02, 0.02]) {
+            translate([estop_x, operator_face_y - 9, operator_control_z])
+                rotate([90, 0, 0])
+                    cylinder(d=29, h=15, center=true, $fn=48);
+            translate([estop_x, operator_face_y - 20, operator_control_z])
+                sphere(d=32, $fn=48);
+        }
+
+        // Keyed laser-enable switch.
+        color([0.08, 0.085, 0.09])
+            translate([key_switch_x, operator_face_y - 3,
+                       operator_control_z])
+                rotate([90, 0, 0])
+                    cylinder(d=25, h=7, center=true, $fn=40);
+        color([0.72, 0.73, 0.74]) {
+            translate([key_switch_x, operator_face_y - 11,
+                       operator_control_z])
+                rotate([90, 0, 0])
+                    cylinder(d=9, h=16, center=true, $fn=32);
+            translate([key_switch_x, operator_face_y - 21,
+                       operator_control_z])
+                cube([4, 3, 18], center=true);
+        }
+
+        // Locking pendant receptacle and its five visible contact sockets.
+        color([0.055, 0.06, 0.065])
+            translate([pendant_connector_x, operator_face_y - 5,
+                       pendant_connector_z])
+                rotate([90, 0, 0])
+                    cylinder(d=31, h=10, center=true, $fn=48);
+        color([0.72, 0.73, 0.74])
+            for (a = [0 : 72 : 359])
+                translate([pendant_connector_x + 7 * cos(a),
+                           operator_face_y - 11,
+                           pendant_connector_z + 7 * sin(a)])
+                    rotate([90, 0, 0])
+                        cylinder(d=2.5, h=3, center=true, $fn=20);
+
+        // Ruida-style controller display mounted through the fixed top deck.
+        color([0.04, 0.045, 0.05])
+            translate([ruida_panel_x, ruida_panel_y,
+                       electronics_top_panel_z + 7])
+                cube([118, 78, 12], center=true);
+        color([0.08, 0.38, 0.58])
+            translate([ruida_panel_x, ruida_panel_y,
+                       electronics_top_panel_z + 14])
+                cube([104, 64, 2], center=true);
+    }
 
     // Rear skin with a genuine opening behind the tube service hatch.
     tube_hatch_width = 1000;
@@ -713,6 +1031,13 @@ module outer_panels_assembly() {
                            tube_hatch_center_z])
                     cube([tube_hatch_width, outer_panel_thickness + 4,
                           tube_hatch_height], center=true);
+                if (show_exhaust_shroud)
+                    translate([exhaust_shroud_x, panel_rear_y,
+                               exhaust_shroud_z])
+                        rotate([90, 0, 0])
+                            cylinder(d=exhaust_shroud_diameter,
+                                     h=outer_panel_thickness + 4,
+                                     center=true, $fn=96);
                 if (show_rear_service_connections && show_iec_power_inlet)
                     translate([iec_inlet_x, panel_rear_y, iec_inlet_z])
                         cube([48, outer_panel_thickness + 4, 28], center=true);
@@ -728,6 +1053,24 @@ module outer_panels_assembly() {
                                 cylinder(d=16, h=outer_panel_thickness + 4,
                                          center=true, $fn=40);
             }
+
+    // Exterior flanged duct collar. The inside face lands on the rear skin;
+    // the collar projects outward (+Y) for a standard 6-inch hose or duct.
+    if (show_rear_panel && show_exhaust_shroud)
+        color([0.16, 0.17, 0.18])
+            translate([exhaust_shroud_x,
+                       panel_rear_y + outer_panel_thickness / 2
+                       + exhaust_shroud_depth / 2,
+                       exhaust_shroud_z])
+                rotate([90, 0, 0])
+                    difference() {
+                        cylinder(d=exhaust_shroud_diameter + 12,
+                                 h=exhaust_shroud_depth,
+                                 center=true, $fn=96);
+                        cylinder(d=exhaust_shroud_diameter,
+                                 h=exhaust_shroud_depth + 2,
+                                 center=true, $fn=96);
+                    }
 
     if (show_rear_panel && show_rear_service_connections) {
         rear_service_face_y = panel_rear_y + outer_panel_thickness / 2;
@@ -916,7 +1259,7 @@ module leveling_feet_assembly() {
     outer_left = -510;
     outer_right = 689.2;
     front_y = -115;
-    rear_y = 500;
+    rear_y = rear_frame_y;
     gusset_center_z = -74;
 
     // Mirror one inward-facing corner plate and foot into each frame corner.
@@ -971,7 +1314,7 @@ module lid_assembly(rotate_angle) {
                     aluminum_extrusion_2020(length=lid_depth - 20);
 
             // Four-millimeter tinted acrylic panels
-            if (show_all_panels)
+            if (show_all_panels && show_lid_panels)
                 color(glass_color) {
                     translate([0, -lid_depth / 2, -10 + glass_thickness / 2])
                         cube([lid_width - 40, lid_depth, glass_thickness], center=true);
@@ -982,7 +1325,44 @@ module lid_assembly(rotate_angle) {
                             cube([lid_width - 40, lid_height,
                                   glass_thickness], center=true);
                 }
+
+            // Centered industrial U-pull on the exterior face of the lower
+            // front 2020 member. Its screws engage T-nuts instead of loading
+            // the acrylic, and it remains part of the moving lid assembly.
+            if (show_lid_handle)
+                translate([0,
+                           -lid_depth - extrusion_profile / 2,
+                           -20 - lid_height])
+                    lid_pull_handle(width=lid_handle_width,
+                                    projection=lid_handle_projection);
         }
+}
+
+module lid_pull_handle(width=180, projection=34, bar_d=14) {
+    foot_d = 24;
+    fastener_d = 7;
+
+    // Black anodized handle: two mounting feet, two stand-offs, and grip.
+    color([0.08, 0.085, 0.09]) {
+        for (x = [-width / 2, width / 2]) {
+            translate([x, -2, 0])
+                rotate([90, 0, 0])
+                    cylinder(d=foot_d, h=4, center=true, $fn=40);
+            translate([x, -projection / 2, 0])
+                rotate([90, 0, 0])
+                    cylinder(d=bar_d, h=projection, center=true, $fn=40);
+        }
+        translate([0, -projection, 0])
+            rotate([0, 90, 0])
+                cylinder(d=bar_d, h=width, center=true, $fn=48);
+    }
+
+    // Visible stainless mounting screws in the center of each foot.
+    color([0.68, 0.69, 0.70])
+        for (x = [-width / 2, width / 2])
+            translate([x, -4.2, 0])
+                rotate([90, 0, 0])
+                    cylinder(d=fastener_d, h=2.5, center=true, $fn=32);
 }
 
 
