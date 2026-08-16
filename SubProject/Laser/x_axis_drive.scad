@@ -11,10 +11,18 @@ use <gt2-belt.scad>;
 
 $fn=64;
 
+// Minimum-tension motor datum for the stocked 158 mm GT2 reduction belt.
+// The motor can move only toward +X from here to add belt tension.
+x_motor_min_x = 38.21;
+x_motor_center_z = 29;
+x_motor_tension_travel = 4;
+
 // 1. MASTER RENDER CALLS (Preserving your exact layout numbers)
+//x_axis_drive_block();
 x_axis_drive_assembly();
 
-
+//temporary block to keep the edge aligned
+//translate([-28,0,0])cube ([10,10,10]);
 
 // =======================================================================
 // TIMING BELT GENERATOR MODULE (CORRECTED TRANSFORM STACK)
@@ -69,11 +77,17 @@ module x_axis_drive_assembly() {
        
     //Parts in addition to mount
     // Hardware visually populated onto the brackets
-    translate([39, -35.5, 29]) rotate([-90, 0, 0])  nema17_stepper();
-    translate([39, 11, 29])  rotate([-90, 0, 0])  gt2_toothed_pulley(teeth=16, bore=5, width=6, center=false);
+    translate([x_motor_min_x, -35.5, x_motor_center_z])
+        rotate([-90, 0, 0]) nema17_stepper();
+    translate([x_motor_min_x, 11, x_motor_center_z])
+        rotate([-90, 0, 0])
+            gt2_toothed_pulley(teeth=16, bore=5, width=6, center=false);
 
     // Run your new belt seamlessly between the 60T gear and the 16T stepper pulley!
-    color("black") translate([0,4,0]) gt2_belt(p1=[0, 11, 25], p2=[39, 11, 29], r1=19.10, r2=5.09, width=6);
+    color("black") translate([0,4,0])
+        gt2_belt(p1=[0, 11, 25],
+                 p2=[x_motor_min_x, 11, x_motor_center_z],
+                 r1=19.10, r2=5.09, width=6);
 
     // --- 3D VISUAL TIMING BELT INTEGRATION ---
     //color("black") translate([0,4,0]) gt2_loop_belt(width=6, thickness=1.5);
@@ -83,9 +97,11 @@ module x_axis_drive_assembly() {
     // exact 31 x 31 mm NEMA-17 hole centers (no former +/-1.5 mm Z error).
     for (x_space = [-15.5, 15.5])
         for (z_space = [-15.5, 15.5]) {
-            translate([39 + x_space, 10, 29 + z_space])
+            translate([x_motor_min_x + x_space, 10,
+                       x_motor_center_z + z_space])
                 rotate([-90, 0, 0]) m3_washer();
-            translate([39 + x_space, 10.6, 29 + z_space])
+            translate([x_motor_min_x + x_space, 10.6,
+                       x_motor_center_z + z_space])
                 rotate([-90, 0, 0]) m3_bhcs(length=10);
         }
 
@@ -105,9 +121,9 @@ module x_axis_drive_assembly() {
 // PRINTABLE HARDWARE COMPONENT MODULE 
 // =======================================================================
 module x_axis_drive_block(){
-  _width = 36;   
+  _width = 35;
   _depth = 27;   
-  _height = 30+8;  
+  _height = 30+8;
   shcs_screw_dia = 3.4;   
   shcs_head_dia = 6.5;    
   shcs_head_depth = 3.3;  
@@ -116,18 +132,20 @@ module x_axis_drive_block(){
   flange_od = 18.0;       
   flange_thick = 1.0;    
   fit_pad = 0.15;         
-  
+
   // Widen the NEMA plate to preserve edge material around the horizontal
   // tension slots. The motor/output shaft centerline runs along X, so useful
   // belt adjustment must also run along X rather than vertically along Z.
-  m_w = 54;  m_d = 5.5;  m_h = 42;
-  motor_plate_center_x = 42;
-  motor_tension_travel = 8;
+  // Four millimetres of one-way travel changes the modeled belt path by
+  // about 7.5 mm, which is ample for tensioning a nominal 158 mm loop.  The
+  // compact plate restores the clearance lost to the former 8 mm slots.
+  m_w = 50;  m_d = 5.5;  m_h = 42;
+  motor_plate_center_x = 40;
   plate_y_pos = 10.8 - 3.55; 
 
   color("crimson") difference() {
     union() {
-        translate([0, -_depth/2+10, _height/2]) cube([_width, _depth, _height], center=true);
+        translate([-_width/2, -17, 0]) cube([_width, _depth, _height], center=false);
         // Carry the widened, +X-biased motor plate all the way down to the
         // print bed.  Matching its width and center removes the unsupported
         // ledge created by the one-direction tension adjustment.
@@ -137,8 +155,12 @@ module x_axis_drive_block(){
         // minimum center distance and can only move right to add tension.
         translate([motor_plate_center_x, plate_y_pos, 29])
             rotate([-90, 0, 0]) cube([m_w, m_h, m_d], center=true);
+
     }
     
+    // subtract back of pulley drive
+    //translate([-30,-20,38])cube([60,10,15]);
+
     // --- MASTER SUBTRACTION TUNNELS ---
     translate([0, -3.5, _height/2+8+8]) cube([38, 16, _height + 2], center=true);
     // Continuous M5 output-axle bore through both housing walls.  This must
@@ -160,14 +182,15 @@ module x_axis_drive_block(){
         translate([0, 0, -0.1]) cylinder(d=flange_od + fit_pad, h=flange_thick + 0.1, $fn=64);
     }
     
-    translate([39, plate_y_pos, 29]) rotate([90, 0, 0]) {
+    translate([x_motor_min_x, plate_y_pos, x_motor_center_z])
+      rotate([90, 0, 0]) {
         // Horizontal boss clearance lets the complete motor translate toward
         // +X, away from the 60T output pulley. The current location is the
         // minimum-tension endpoint, not the middle of the adjustment range.
         hull() {
             translate([0, 0, 0])
                 cylinder(d=22.2, h=m_d + 2, center=true, $fn=64);
-            translate([motor_tension_travel, 0, 0])
+            translate([x_motor_tension_travel, 0, 0])
                 cylinder(d=22.2, h=m_d + 2, center=true, $fn=64);
         }
         for(x_space = [-15.5, 15.5]) {
@@ -175,19 +198,19 @@ module x_axis_drive_block(){
                 translate([x_space, z_space, 0]) {
                     // NEMA-17 holes remain on their 31 x 31 mm pattern; each
                     // slot begins at the current/minimum-tension position and
-                    // provides 8 mm of adjustment only toward +X.
+                    // provides 4 mm of adjustment only toward +X.
                     hull() {
                         translate([0, 0, 0])
                             cylinder(d=3.4, h=m_d + 2, center=true, $fn=32);
-                        translate([motor_tension_travel, 0, 0])
+                        translate([x_motor_tension_travel, 0, 0])
                             cylinder(d=3.4, h=m_d + 2, center=true, $fn=32);
                     }
                 }
             }
         }
     }
-    
-    for(x_offset = [-13, 13]) {
+
+    for(x_offset = [-12, 11]) {
         translate([x_offset, 0, 0]) {
             translate([0, 0, -1]) cylinder(d=shcs_screw_dia, h=_height + 2);
             translate([0, 0, 8 - shcs_head_depth]) cylinder(d=shcs_head_dia, h=shcs_head_depth + 9);
@@ -198,7 +221,7 @@ module x_axis_drive_block(){
         translate([0, 0, -1]) cylinder(d=shcs_screw_dia, h=8 + 2);
         translate([0, 0, 8 - shcs_head_depth]) cylinder(d=shcs_head_dia, h=shcs_head_depth + 1);
     }
-    translate([53, 0, 0]) {
+    translate([60, 0, 0]) {
         translate([0, 0, -1]) cylinder(d=shcs_screw_dia, h=8 + 2);
         translate([0, 0, 8 - shcs_head_depth]) cylinder(d=shcs_head_dia, h=shcs_head_depth + 1);
     }

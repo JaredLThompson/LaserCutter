@@ -11,7 +11,7 @@ open ends. Only the two motor-reduction belts are closed loops.
 |---:|---|---|---:|---:|---:|---|
 | 1 | Main X-axis drive | Open belt routed around the X endpoints | About 1710 mm routed | **Cut approximately 1810 mm** | N/A | Includes about 100 mm total allowance for clamping, trimming, and installation. |
 | 2 | Left and right Y-axis drives | Open belts routed around the Y endpoints | About 949 mm routed each | **Cut approximately 1050 mm each** | N/A | Includes about 100 mm allowance per belt. Cut both from the same stock and keep their usable lengths equal. |
-| 1 | X-axis motor reduction | 60T to 16T | 159.47 mm at minimum tension | **160 mm** | 80 | Current motor position is the minimum-tension end of the slots. A 160 mm belt places it about 0.29 mm into the 8 mm adjustment range. |
+| 1 | X-axis motor reduction | 60T to 16T | 158.00 mm at minimum tension | **158 mm** | 79 | Uses `x_motor_min_x = 38.21`; 4 mm of slot travel remains available toward +X, providing about 7.5 mm of belt-length adjustment. |
 | 1 | Y-axis motor reduction | 60T to 20T | 200.00 mm | **200 mm** | 100 | Uses `y_motor_z_adjustment = 11.43` to match the stocked belt. |
 
 ## Purchase summary
@@ -19,7 +19,7 @@ open ends. Only the two motor-reduction belts are closed loops.
 - **Approximately 4 m of open-ended GT2-6 belting** for the main X and both Y axes
   - X initial cut: approximately 1810 mm
   - Y initial cuts: approximately 1050 mm each
-- **1 × GT2-6, 160 mm closed loop**
+- **1 × GT2-6, 158 mm closed loop**
 - **1 × GT2-6, 200 mm closed loop**
 
 The three open-belt cuts total approximately 3910 mm, so **4 m is the practical
@@ -29,10 +29,10 @@ minimum purchase**. Buying 5 m provides useful spare material.
 
 ### X-axis motor reduction
 
-The modeled 60T-to-16T drive accepts approximately **159.47–174.53 mm** of
-pitch length across the full 8 mm motor adjustment. The 160 mm belt is the
-preferred size because it starts near minimum tension and preserves nearly all
-of the slot travel for installation, tensioning, and future belt stretch.
+The modeled 60T-to-16T drive now starts at approximately **158.00 mm** with the
+motor at `x_motor_min_x = 38.21`. The four motor slots and center-boss opening
+extend 8 mm only toward +X, preserving the complete adjustment range for
+tensioning and future belt stretch.
 
 ### Main X- and Y-axis open belts
 

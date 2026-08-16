@@ -1,7 +1,7 @@
 // Fixed X drag-chain bracket for the mirrored (+Y) X-drive assembly.
 //
 // Local coordinates match x_axis_drive_assembly() AFTER it has been mirrored
-// across Y: motor centre [39, 35.5, 29], motor plate near Y=-7.25, and the
+// across Y: motor centre [38.21, 35.5, 29], motor plate near Y=-7.25, and the
 // fixed chain connector centred near [50, 45, 60].  The bracket shares the
 // upper pair of M3 motor-plate bolts, runs around (not through) the motor
 // body, and carries the chain above the motor and X-belt envelopes.
@@ -16,13 +16,19 @@ module x_drag_chain_fixed_bracket(show_hardware=true,
                                   body_color=[0.10, 0.32, 0.55],
                                   chain_x=50,
                                   chain_y=45,
-                                  shelf_top_z=52.5) {
+                                  shelf_top_z=52.5,
+                                  motor_center_x=38.21,
+                                  motor_tension_travel=4) {
     plate_y = -10.5;
     plate_t = 3;
     upper_bolt_z = 44.5;
-    bolt_x = [23.5, 54.5];
+    // Bring the doubler's upper face flush with the chain shelf.  This makes
+    // the complete bracket sit on one planar face when printed upside down.
+    plate_h = 2 * (shelf_top_z - upper_bolt_z);
+    bolt_x = [motor_center_x - 15.5, motor_center_x + 15.5];
     outside_x = [14, 64];
     arm_w = 6;
+    top_rail_t = 3;
     plate_left_x = outside_x[0] - arm_w / 2;
     plate_right_x = outside_x[1] + arm_w / 2;
     plate_w = plate_right_x - plate_left_x;
@@ -45,7 +51,7 @@ module x_drag_chain_fixed_bracket(show_hardware=true,
     // radial running clearance beyond the rendered pulley/belt envelopes.
     reduction_pulley_center = [0, 25];
     reduction_clearance_d = 44;
-    motor_pulley_center = [39, 29];
+    motor_pulley_center = [motor_center_x, 29];
     motor_pulley_clearance_d = 18;
 
     color(body_color)
@@ -56,7 +62,7 @@ module x_drag_chain_fixed_bracket(show_hardware=true,
                 // guaranteeing real overlap instead of the former 0.5 mm
                 // air gap at each end.
                 translate([plate_center_x, plate_y, upper_bolt_z])
-                    cube([plate_w, plate_t, 13], center=true);
+                    cube([plate_w, plate_t, plate_h], center=true);
 
                 // Arms leave the motor plate outside the NEMA-17 body and
                 // climb above it, so neither the motor nor reduction belt is
@@ -71,6 +77,18 @@ module x_drag_chain_fixed_bracket(show_hardware=true,
                             cube([arm_w, 6, shelf_t], center=true);
                     }
 
+                // The hulls above are strong gussets, but their upper faces
+                // slope between the front doubler and rear shelf.  Cap each
+                // outside arm with a constant-height rail so the complete
+                // bracket has coplanar print-bed contact when inverted.
+                for (x = outside_x)
+                    translate([x,
+                               (plate_y + shelf_center_y + shelf_d / 2) / 2,
+                               shelf_top_z - top_rail_t / 2])
+                        cube([arm_w,
+                              shelf_center_y - plate_y + shelf_d / 2,
+                              top_rail_t], center=true);
+
                 // Shelf lies directly beneath the blue fixed-end connector.
                 translate([shelf_center_x, shelf_center_y,
                            shelf_top_z - shelf_t / 2])
@@ -80,11 +98,19 @@ module x_drag_chain_fixed_bracket(show_hardware=true,
                     ruthex_m3_boss(top_z=shelf_top_z);
             }
 
-            // Shared clearance holes for the upper pair of M3 motor screws.
+            // Matching horizontal slots let the two shared upper motor
+            // screws follow the NEMA plate through its complete tension
+            // range without forcing the fixed chain bracket to move.
             for (x = bolt_x)
-                translate([x, plate_y, upper_bolt_z])
-                    rotate([90, 0, 0])
-                        cylinder(d=3.5, h=plate_t + 2, center=true);
+                hull() {
+                    translate([x, plate_y, upper_bolt_z])
+                        rotate([90, 0, 0])
+                            cylinder(d=3.5, h=plate_t + 2, center=true);
+                    translate([x + motor_tension_travel,
+                               plate_y, upper_bolt_z])
+                        rotate([90, 0, 0])
+                            cylinder(d=3.5, h=plate_t + 2, center=true);
+                }
 
             // Clear the complete reduction-pulley and belt corridor from the
             // widened front plate.  The material above this relief remains a
@@ -97,6 +123,11 @@ module x_drag_chain_fixed_bracket(show_hardware=true,
                                  h=plate_t + 2, center=true);
                 translate([motor_pulley_center[0], plate_y,
                            motor_pulley_center[1]])
+                    rotate([90, 0, 0])
+                        cylinder(d=motor_pulley_clearance_d,
+                                 h=plate_t + 2, center=true);
+                translate([motor_pulley_center[0] + motor_tension_travel,
+                           plate_y, motor_pulley_center[1]])
                     rotate([90, 0, 0])
                         cylinder(d=motor_pulley_clearance_d,
                                  h=plate_t + 2, center=true);
