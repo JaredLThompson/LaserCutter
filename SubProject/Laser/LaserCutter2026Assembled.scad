@@ -21,13 +21,17 @@ use <gt2_gears.scad>;
 use <iec_fused_inlet.scad>;
 use <../../laser_parts.scad>;
 use <nema17_motor_plate.scad>;
+use <parametric_drag_chain.scad>;
+use <x_drag_chain_carriage_bracket.scad>;
+use <x_drag_chain_fixed_bracket.scad>;
+use <y_drag_chain_brackets.scad>;
 
 
 
 // ============================================================================
 // Interactive positioning
 // ============================================================================
-X_Pos = 0; // Laser head position; approximately 345 max
+X_Pos = -375; // Laser head position; approximately -375 min, 345 max
 Y_Pos = -43;   // Gantry position; approximately -43 min, +307 max
 y_axis_y_adjustment = 15; // Fine alignment: positive moves both Y rails and X gantry toward +Y
 Y_Stage_Pos = Y_Pos + y_axis_y_adjustment;
@@ -43,9 +47,26 @@ y_idler_tension = 7.5;    // 0-15 mm; larger values increase Y-belt tension
 show_y_idler_tensioners = true;
 show_y_idler_support_rails = true;
 show_y_motor_belt = true;
+show_x_drag_chain = true;
+show_x_drag_chain_bracket = true;
+show_x_drag_chain_fixed_bracket = true;
+show_y_drag_chain = true;
+show_y_drag_chain_brackets = true;
+x_drive_flip_y = true; // Put the X stepper on the drag-chain side of the gantry
+x_drive_y_offset = 0; // Belt [-3,+3] sits inside pulley tooth track [-4,+4]
 show_a1_mirror_pedestal = true;
 y_motor_z_adjustment = 0; // Fine belt tension; use ~0.25 mm for a 220 mm belt
 y_motor_pulley_axial_adjustment = 1.5;
+x_drag_chain_fixed_x = 460;
+x_drag_chain_y = 45;
+x_drag_chain_base_z = 175; // Clears the flipped X motor and remains above the X belt
+x_drag_chain_links = 68; // 986 mm pitch length; full X span plus margin
+x_drag_chain_carriage = x_drag_chain_fixed_x - X_Pos;
+y_drag_chain_x = 468; // Clears the gantry plate with added edge margin on the crossbar
+y_drag_chain_fixed_y = 350; // Stationary attachment on the right chassis rail
+y_drag_chain_base_z = 5; // Entire chain envelope stays beneath the Y rail
+y_drag_chain_links = 36; // 522 mm pitch length for the complete Y travel
+y_drag_chain_carriage = y_drag_chain_fixed_y - Y_Stage_Pos;
 
 
 // ============================================================================
@@ -70,22 +91,22 @@ show_exhaust_shroud = true;
 exhaust_shroud_diameter = 152; // Nominal 6-inch cutting-chamber duct
 exhaust_shroud_depth = 30;
 show_right_panel = true;
-show_bottom_panel = true;
+show_bottom_panel = false;
 show_tube_top_panel = true;
 show_electronics_top_panel = true;
 show_tube_front_bulkhead = true;
 show_tube_floor_panel = true;
 show_tube_access_door = true;
 show_electronics_access_door = true;
-show_electronics_mounting_panel = true;
+show_electronics_mounting_panel = false;
 show_electronics_components = true;
 show_electronics_operator_controls = true;
 show_laser_power_supply = true;
 show_stepper_drivers = true;
 show_din_rails = true;
-show_left_lower_access_panel = false;
-show_left_upper_access_panel = false;
-show_left_panel_overlap_strip = false;
+show_left_lower_access_panel = true;
+show_left_upper_access_panel = true;
+show_left_panel_overlap_strip = true;
 
 leveling_foot_adjustment = 12; // Exposed 3/8-16 stud below socket: 0–22.86 mm
 outer_panel_thickness = 2;
@@ -362,16 +383,42 @@ translate([0, Y_Stage_Pos, gantry_z_adjustment]) {
          mgn12h_with_rail(rail_length = 800, carriage_pos = X_Pos, include_stops = false);  
          
     // X-Axis Belt Tension Idler Bracket (Far Left Side)
-    translate([-415, 130 - 130, 114])
+    translate([-415, 0, 114])
         x_axis_idler_assembly();
         
     // X-Axis Stepper Drive Assembly Block (Far Right Side)
-    translate([420, 130 - 130, 115])
-        x_axis_drive_assembly();
+    translate([420, x_drive_y_offset, 115])
+        if (x_drive_flip_y)
+            mirror([0, 1, 0]) x_axis_drive_assembly();
+        else
+            x_axis_drive_assembly();
         
     // X-Axis Visual Timing Belt Loop
     color("green") translate([0, 0, 135 + 4])
         gt2_belt(p1=[-415, 0, 0], p2=[420, 0, 0], width=6); 
+
+    // X-carriage cable chain. The blue end is fixed near the right drive;
+    // the inverted red end follows X_Pos on the opposite (+Y) side of A4.
+    if (show_x_drag_chain)
+        translate([x_drag_chain_fixed_x,
+                   x_drag_chain_y,
+                   x_drag_chain_base_z])
+            parametric_drag_chain(
+                carriage=x_drag_chain_carriage,
+                links=x_drag_chain_links,
+                mirrored=true,
+                show_ends=true,
+                show_pins=true);
+
+    // Fixed blue-end support shares the upper X-motor mounting screws and
+    // bridges above the motor.  Its arms stay outside the NEMA-17 envelope.
+    if (show_x_drag_chain_fixed_bracket)
+        translate([420, x_drive_y_offset, 115])
+            x_drag_chain_fixed_bracket(
+                show_hardware=true,
+                chain_x=x_drag_chain_fixed_x + 10 - 420,
+                chain_y=x_drag_chain_y - x_drive_y_offset,
+                shelf_top_z=x_drag_chain_base_z - 7.5 - 115);
 
     // MGN12 Gantry Frame Interface Adapter Plates (Left & Right Ends)
     translate([410, 130 - 130, 87]) rotate([0,0,180])mgn12h_to_2020_adapter();
@@ -390,8 +437,53 @@ translate([0, Y_Stage_Pos, gantry_z_adjustment]) {
         // A4 Focuser Carriage Interface Plate
         translate([0, -35, 127])
           MGN12HAdapterPlateAssembly();
+
+        // Uses the two existing M3 tapped holes on the A4 plate's +Y end
+        // face and presents an M4 shelf under the moving red chain connector.
+        if (show_x_drag_chain_bracket)
+            translate([0, 20, 130])
+                x_drag_chain_carriage_bracket(show_hardware=true);
     }
+
+    // Moving red end: bolts into the underside T-slot of the moving X-gantry
+    // crossbar and delivers the X-motor/focuser wiring onto that gantry.
+    if (show_y_drag_chain_brackets)
+        // The crossbar is centered at Z=104, so its underside is Z=94.
+        translate([y_drag_chain_x, 0, 94])
+            y_drag_chain_moving_bracket(
+                show_hardware=true,
+                chain_x=0,
+                shelf_top_z=y_drag_chain_base_z + 2*18 - 7.5 - 94);
 }
+
+// Right-side Y cable chain.  Rotating the proven X-chain kinematics 90 degrees
+// makes its moving red end follow Y_Stage_Pos while the blue end stays at the
+// stationary right-side chassis rail.  Its complete envelope remains outboard
+// of the Y belt/rail; only the red endpoint follows the gantry.
+if (show_y_drag_chain)
+    translate([y_drag_chain_x,
+               y_drag_chain_fixed_y,
+               y_drag_chain_base_z + gantry_z_adjustment])
+        rotate([0, 0, 90])
+            parametric_drag_chain(
+                carriage=y_drag_chain_carriage,
+                links=y_drag_chain_links,
+                mirrored=true,
+                show_ends=true,
+                show_pins=true);
+
+if (show_y_drag_chain_brackets)
+    // This blue-end bracket bolts to the inboard face (X=500) of the fixed
+    // longitudinal 2020 centered at X=510,
+    // not to the rear X-gantry crossmember.
+    translate([500,
+               y_drag_chain_fixed_y,
+               64 + gantry_z_adjustment])
+        y_drag_chain_fixed_bracket(
+            show_hardware=true,
+            shelf_top_z=y_drag_chain_base_z - 7.5 - 64,
+            chain_x=y_drag_chain_x - 500,
+            chain_y=10);
 
 
 // =======================================================================
