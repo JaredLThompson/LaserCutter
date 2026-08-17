@@ -160,9 +160,39 @@ module z_table_leadscrew_assembly(show_bearings=true) {
         }
 }
 
-// Stationary, mechanically synchronized four-screw Z drive. This is a
-// layout model: the dark chain uses centerline segments for fast previews,
-// while sprocket pitch diameters are calculated from the real #25 pitch.
+// Return the #25-chain pitch radius for a sprocket tooth count.
+function chain_pitch_radius(teeth) =
+    z_chain_pitch / (2 * sin(180 / teeth));
+
+// External common tangent between two pitch circles.  `side=-1` selects the
+// right-hand tangent while travelling c1 -> c2; this is the outside of the
+// counter-clockwise Z-drive route below.
+function chain_external_tangent(c1, r1, c2, r2, side=-1) =
+    let(dx = c2[0] - c1[0],
+        dy = c2[1] - c1[1],
+        d = sqrt(dx*dx + dy*dy),
+        phi = atan2(dy, dx),
+        normal_angle = phi + side * acos((r1-r2)/d),
+        n = [cos(normal_angle), sin(normal_angle)])
+    [
+        [c1[0] + r1*n[0], c1[1] + r1*n[1]],
+        [c2[0] + r2*n[0], c2[1] + r2*n[1]]
+    ];
+
+function chain_point_angle(center, point) =
+    atan2(point[1]-center[1], point[0]-center[0]);
+
+// Follow the rotation imposed by the chain route.  Positive is CCW and
+// negative is CW.  Unlike a shortest-arc choice, this preserves deliberate
+// greater-than-180-degree engagement around the small drive sprocket.
+function chain_directional_sweep(a1, a2, direction=1) =
+    direction > 0
+        ? ((a2-a1+360) % 360)
+        : -((a1-a2+360) % 360);
+
+// Stationary, mechanically synchronized four-screw Z drive.  Chain runs are
+// calculated from the actual sprocket pitch circles so they touch the teeth
+// tangentially instead of passing through the sprocket centers.
 module z_table_chain_drive_assembly(show_motor=true,
                                     show_chain=true) {
     screw_x = z_table_width / 2 - acme_end_inset;
@@ -175,6 +205,34 @@ module z_table_chain_drive_assembly(show_motor=true,
         z_motor_position,
         z_idler_left_position,
         [-screw_x,  screw_y]
+    ];
+    route_teeth = [
+        z_screw_sprocket_teeth,
+        z_screw_sprocket_teeth,
+        z_screw_sprocket_teeth,
+        z_idler_sprocket_teeth,
+        z_motor_sprocket_teeth,
+        z_idler_sprocket_teeth,
+        z_screw_sprocket_teeth
+    ];
+    // Screws and motor turn together; bearing idlers turn oppositely.  Using
+    // these signs as signed pitch radii automatically selects external
+    // tangents for equal-direction sprockets and internal tangents when the
+    // chain crosses to an idler.
+    route_directions = [1, 1, 1, -1, 1, -1, 1];
+    route_radii = [for (teeth = route_teeth) chain_pitch_radius(teeth)];
+    route_signed_radii = [
+        for (i = [0 : len(route_radii)-1])
+            route_radii[i] * route_directions[i]
+    ];
+    route_tangents = [
+        for (i = [0 : len(screw_points)-1])
+            chain_external_tangent(
+                screw_points[i],
+                route_signed_radii[i],
+                screw_points[(i+1) % len(screw_points)],
+                route_signed_radii[(i+1) % len(screw_points)],
+                side=-1)
     ];
 
     // Four identical sprockets keep every ACME screw synchronized 1:1.
@@ -203,14 +261,37 @@ module z_table_chain_drive_assembly(show_motor=true,
                 bore=z_motor_sprocket_bore,
                 width=3);
 
-    if (show_chain)
-        color([0.16, 0.13, 0.10])
-            for (i = [0 : len(screw_points)-1])
-                chain_preview_segment(
-                    screw_points[i],
-                    screw_points[(i+1) % len(screw_points)],
-                    z=z_chain_plane_z + 1.5,
-                    width=z_chain_preview_width);
+    if (show_chain) {
+        // Tangent straight spans.  These replace (rather than overlay) the
+        // former center-to-center spans.
+        for (i = [0 : len(screw_points)-1])
+            chain_preview_segment(
+                route_tangents[i][0],
+                route_tangents[i][1],
+                z=z_chain_plane_z + 1.5,
+                width=z_chain_preview_width);
+
+        // Calculated wrap from the incoming tangent to the outgoing tangent
+        // at every sprocket.  The small continuous backing masks sub-pitch
+        // rounding at the joins while the rollers show the real #25 pitch.
+        for (i = [0 : len(screw_points)-1]) {
+            incoming = route_tangents[(i-1+len(screw_points))
+                                      % len(screw_points)][1];
+            outgoing = route_tangents[i][0];
+            start_angle = chain_point_angle(screw_points[i], incoming);
+            end_angle = chain_point_angle(screw_points[i], outgoing);
+            chain_sprocket_wrap_between(
+                center=screw_points[i],
+                radius=route_radii[i],
+                start_angle=start_angle,
+                sweep=chain_directional_sweep(
+                    start_angle,
+                    end_angle,
+                    route_directions[i]),
+                z=z_chain_plane_z + 1.5,
+                width=z_chain_preview_width);
+        }
+    }
 
     if (show_motor)
         translate([z_motor_position[0], z_motor_position[1], 0]) {
@@ -294,14 +375,149 @@ module nema23_right_angle_mount() {
     }
 }
 
+
+
+// Fully detailed #25 Roller Chain Segment Model
 module chain_preview_segment(p1, p2, z=0, width=3.2) {
-    hull() {
-        translate([p1[0], p1[1], z])
-            cylinder(d=width, h=2.2, center=true, $fn=12);
-        translate([p2[0], p2[1], z])
-            cylinder(d=width, h=2.2, center=true, $fn=12);
+    // --- #25 Industrial Chain Dimensions (mm) ---
+    pitch = 6.35;        // 1/4 inch spacing center-to-center
+    pin_dia = 2.31;      // Pin diameter
+    roller_dia = 3.30;   // Roller outer diameter
+    link_width = 3.18;   // Internal width of inner link
+    plate_thick = 0.76;  // Link plate thickness
+    plate_height = 5.84; // Outer link plate waist height
+
+    // --- Path Math ---
+    dx = p2[0] - p1[0];
+    dy = p2[1] - p1[1];
+    distance = sqrt(dx*dx + dy*dy);
+    angle = atan2(dy, dx);
+
+    // Calculate exactly how many pitches fit into this run
+    links_count = floor(distance / pitch);
+
+    // Continuous pitch-line backing reaches both calculated tangent points.
+    // The detailed links below are quantized to whole pitches; without this
+    // backing their final fractional pitch appeared as a gap at each wrap.
+    color([0.12, 0.12, 0.12])
+        hull() {
+            translate([p1[0], p1[1], z])
+                cylinder(h=link_width + plate_thick*3,
+                         d=plate_height,
+                         center=true,
+                         $fn=16);
+            translate([p2[0], p2[1], z])
+                cylinder(h=link_width + plate_thick*3,
+                         d=plate_height,
+                         center=true,
+                         $fn=16);
+        }
+
+    // Helper: A single hourglass-shaped chain side plate
+    module link_plate() {
+        linear_extrude(height = plate_thick, center = true) {
+            hull() {
+                circle(d = plate_height, $fn=24);
+                translate([pitch, 0, 0]) circle(d = plate_height, $fn=24);
+            }
+        }
+    }
+
+    // Render the links running down the line
+    translate([p1[0], p1[1], z])
+    rotate([0, 0, angle]) {
+        for (i = [0 : links_count - 1]) {
+            translate([i * pitch, 0, 0]) {
+
+                // ALTERNATING LINKS: Even indexes are Inner, Odd are Outer
+                if (i % 2 == 0) {
+                    // --- INNER LINK ---
+                    color("Silver") {
+                        // Bottom Side Plate
+                        translate([0, 0, -link_width/2 - plate_thick/2]) link_plate();
+                        // Top Side Plate
+                        translate([0, 0,  link_width/2 + plate_thick/2]) link_plate();
+                        // Rollers/Bushings over the pin positions
+                        translate([0, 0, 0]) cylinder(h = link_width, d = roller_dia, center=true, $fn=24);
+                        translate([pitch, 0, 0]) cylinder(h = link_width, d = roller_dia, center=true, $fn=24);
+                    }
+                } else {
+                    // --- OUTER LINK ---
+                    color("DarkGray") {
+                        // Outer plates sit further apart on Z axis to overlap inner links cleanly
+                        z_offset = link_width/2 + plate_thick + plate_thick/2 + 0.05;
+
+                        // Bottom Outer Plate
+                        translate([0, 0, -z_offset]) link_plate();
+                        // Top Outer Plate
+                        translate([0, 0,  z_offset]) link_plate();
+
+                        // Solid Connecting Pins
+                        pin_h = link_width + (plate_thick * 3);
+                        translate([0, 0, 0]) cylinder(h = pin_h, d = pin_dia, center=true, $fn=16);
+                        translate([pitch, 0, 0]) cylinder(h = pin_h, d = pin_dia, center=true, $fn=16);
+                    }
+                }
+
+            }
+        }
     }
 }
+
+// Continuous #25-chain wrap between two calculated tangent points.  Rollers
+// are spaced by the real 6.35 mm pitch while the dark backing guarantees a
+// closed preview even when an arc contains a fractional final pitch.
+module chain_sprocket_wrap_between(center=[0, 0],
+                                   radius=10,
+                                   start_angle=0,
+                                   sweep=90,
+                                   z=0,
+                                   width=3.2) {
+    pitch = z_chain_pitch;
+    roller_dia = 3.30;
+    plate_height = 5.84;
+    chain_height = 3.18 + 0.76*3;
+    arc_length = abs(sweep) * PI / 180 * radius;
+    roller_count = max(1, floor(arc_length / pitch));
+    render_steps = max(2, ceil(abs(sweep) / 6));
+
+    // Smooth backing follows the pitch circle precisely.
+    color([0.12, 0.12, 0.12])
+        for (step = [0 : render_steps-1]) {
+            a1 = start_angle + sweep * step/render_steps;
+            a2 = start_angle + sweep * (step+1)/render_steps;
+            hull() {
+                translate([center[0] + radius*cos(a1),
+                           center[1] + radius*sin(a1), z])
+                    cylinder(h=chain_height,
+                             d=plate_height,
+                             center=true,
+                             $fn=16);
+                translate([center[0] + radius*cos(a2),
+                           center[1] + radius*sin(a2), z])
+                    cylinder(h=chain_height,
+                             d=plate_height,
+                             center=true,
+                             $fn=16);
+            }
+        }
+
+    // Roller centers include both tangent ends.  Their angular distribution
+    // is uniform; the maximum visual pitch error is confined to the final
+    // fractional link instead of accumulating around the sprocket.
+    color("Silver")
+        for (i = [0 : roller_count]) {
+            a = start_angle + sweep * i/roller_count;
+            translate([center[0] + radius*cos(a),
+                       center[1] + radius*sin(a), z])
+                cylinder(h=3.18,
+                         d=roller_dia,
+                         center=true,
+                         $fn=18);
+        }
+}
+
+
 
 module roller_chain_sprocket(teeth=10,
                              bore=8,
