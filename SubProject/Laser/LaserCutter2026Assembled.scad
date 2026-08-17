@@ -24,6 +24,7 @@ use <parametric_drag_chain.scad>;
 use <x_drag_chain_carriage_bracket.scad>;
 use <x_drag_chain_fixed_bracket.scad>;
 use <y_drag_chain_brackets.scad>;
+use <honeycomb_table.scad>;
 
 
 
@@ -76,7 +77,7 @@ $fn = 64;
 show_laser_beams = true;
 show_leveling_feet = true;
 
-show_all_panels = true; // Master switch for every sheet-metal/acrylic panel
+show_all_panels = false; // Master switch for every sheet-metal/acrylic panel
 show_outer_panels = true;
 show_front_panel = true;
 show_front_cutting_panel = true;
@@ -142,7 +143,19 @@ left_lower_panel_pull = 100;        // Pull outward in -X; hide to remove comple
 tube_floor_panel_drop = 0;        // Positive value lowers floor for inspection
 
 
-show_honeycomb=true;
+show_honeycomb=false; // Legacy simplified bed
+show_honeycomb_table=true;
+show_honeycomb_table_mesh=true;
+honeycomb_table_mesh_detail="fast"; // "fast" or "detailed"
+show_honeycomb_table_kp08=true;
+show_honeycomb_table_z_chain_drive=true;
+
+// Built-table test placement.  X/Y center the four ACME brackets between
+// the cutting-chamber frame members.  Z=0 puts the top of the angle frame at
+// approximately 100.6 mm above the chassis bottom after datum correction.
+honeycomb_table_x = 0;
+honeycomb_table_y = 150;
+honeycomb_table_z_adjustment = 0;
 
 
 // ============================================================================
@@ -188,13 +201,13 @@ e_panel_thickness = 4;
 // complete body including the asymmetric collar, so the toothed belt plane is
 // offset from the module origin.  The 60T and motor pulley tooth faces are
 // aligned here at X=21.5 rather than at their shaft/collar centers.
-y_drive_belt_plane_x = 21.5;
+y_drive_belt_plane_x = 21.5+10;
 y_drive_pulley_center = [y_drive_belt_plane_x,
                          y_drive_axle_y,
                          89 + gantry_z_adjustment];
 // Base Z=20 preserves the current motor position when gantry_z_adjustment=60.
 // Motor and drive axle now rise/fall together, keeping belt length constant.
-y_motor_mount_origin = [10,
+y_motor_mount_origin = [20,
                         gantry_rear_y-32,
                         20 + gantry_z_adjustment + y_motor_z_adjustment];
 y_motor_pulley_center = [y_drive_belt_plane_x,
@@ -305,7 +318,7 @@ translate([0,y_drive_axle_y,89])
   rotate([0,90,0])cylinder(d=8,h=870, center=true);
   
 // Y drive gear
-translate([18,y_drive_axle_y,89])
+translate([18+10,y_drive_axle_y,89])
   rotate([0,-90,0])
     gt2_toothed_pulley(teeth=60, bore=8, width=9, center=true, m_shaft_lock_dia=25);
 
@@ -360,6 +373,28 @@ if (show_laser_beams) {
 if (show_honeycomb)
   translate([0, 130, -32])
     laser_honeycomb_bed(w=750, d=400, h=12);
+
+// Measured/built 35-inch-class honeycomb table and four-corner ACME mounts.
+// Keep its origin adjustment exposed until final metric measurements are
+// available from the physical assembly.
+if (show_honeycomb_table)
+    translate([honeycomb_table_x,
+               honeycomb_table_y,
+               honeycomb_table_z_adjustment])
+        z_table_assembly(
+            show_honeycomb=show_honeycomb_table_mesh,
+            honeycomb_detail=honeycomb_table_mesh_detail,
+            show_acme_hardware=true);
+
+// The lead screws and KP08 supports remain fixed while the table moves in Z.
+if (show_honeycomb_table)
+    translate([honeycomb_table_x, honeycomb_table_y, 0])
+        z_table_leadscrew_assembly(
+            show_bearings=show_honeycomb_table_kp08);
+
+if (show_honeycomb_table && show_honeycomb_table_z_chain_drive)
+    translate([honeycomb_table_x, honeycomb_table_y, 0])
+        z_table_chain_drive_assembly();
 
 
 if (show_lid)
@@ -584,10 +619,12 @@ electronics_post_top_z = 249;
 // Back bottom of gantry
 translate([0, gantry_rear_y, -62]) rotate([0, 90, 0]) aluminum_extrusion_2020(length=1000, center=true, black=true);
 
-// Y Motor Support
+// Shared Y-motor / Z-chain-drive support.  The 40 mm face gives the NEMA 23
+// right-angle bracket a rigid, correctly sized mounting surface and better
+// resists the torque reaction from the #25 chain drive.
 translate([0, gantry_rear_y, split_post_bottom_z])
-  rotate([0,0,90])
-    aluminum_extrusion_2020(length=gantry_rail_bottom_z-split_post_bottom_z);
+  rotate([0,0,180])
+    aluminum_extrusion_2040(length=gantry_rail_bottom_z-split_post_bottom_z);
 
 // Y Motor Assembly()
 translate(y_motor_mount_origin)
